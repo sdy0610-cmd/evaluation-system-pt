@@ -5,6 +5,45 @@ import {
 import type { Evaluator, Company, Evaluation } from '../../types';
 import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck } from 'lucide-react';
 
+const PRES_CRITERIA = [
+  {
+    section: 1,
+    name: '창업 아이템 혁신성 및 완성도',
+    total: 35,
+    items: [
+      { key: '1-1', name: '혁신성 및 차별성', max: 20 },
+      { key: '1-2', name: '아이템 완성도 및 기술성', max: 15 },
+    ],
+  },
+  {
+    section: 2,
+    name: '사업화 역량 및 시장성',
+    total: 30,
+    items: [
+      { key: '2-1', name: '목표시장 규모 및 성장가능성', max: 15 },
+      { key: '2-2', name: '사업화 전략 및 수익모델', max: 15 },
+    ],
+  },
+  {
+    section: 3,
+    name: '창업팀 역량',
+    total: 25,
+    items: [
+      { key: '3-1', name: '창업자·팀 전문성', max: 15 },
+      { key: '3-2', name: '실행 의지 및 역량', max: 10 },
+    ],
+  },
+  {
+    section: 4,
+    name: '정책 목표 부합성',
+    total: 10,
+    items: [
+      { key: '4-1', name: '고용·수출·사회적 가치 창출', max: 5 },
+      { key: '4-2', name: '지원 분야 적합성', max: 5 },
+    ],
+  },
+];
+
 interface Props {
   user: Evaluator;
   onLogout: () => void;
@@ -23,6 +62,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
 
   // Evaluation form state
   const [score, setScore] = useState('');
+  const [subScores, setSubScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
@@ -62,13 +102,32 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     const type = getActiveEvalType(co);
     if (type) {
       const ev = getEvalForCompany(co.project_no, type);
-      setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
+      if (type === '발표' && ev?.sub_scores && Object.keys(ev.sub_scores).length > 0) {
+        const ss = ev.sub_scores as Record<string, number>;
+        setSubScores(ss);
+        const total = Object.values(ss).reduce((a, b) => a + b, 0);
+        setScore(String(total));
+      } else {
+        setSubScores({});
+        setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
+      }
       setComment(ev?.comment || '');
     } else {
       setScore('');
+      setSubScores({});
       setComment('');
     }
     setSubmitMsg('');
+  }
+
+  function setSubScore(key: string, val: number, max: number) {
+    const clamped = Math.min(max, Math.max(0, val));
+    setSubScores(prev => {
+      const next = { ...prev, [key]: clamped };
+      const total = Object.values(next).reduce((a, b) => a + b, 0);
+      setScore(String(total));
+      return next;
+    });
   }
 
   async function handleSubmit() {
@@ -92,6 +151,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         evaluator_id: user.id,
         evaluation_type: evalType,
         score: sc,
+        sub_scores: evalType === '발표' && Object.keys(subScores).length > 0 ? subScores : undefined,
         comment: comment.trim() || undefined,
         submitted_at: new Date().toISOString(),
       });
@@ -262,32 +322,80 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
                   </div>
                 ) : (
                   <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">점수 (0~100점)</label>
-                      <div className="space-y-2">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={score || 0}
-                          onChange={e => setScore(e.target.value)}
-                          className="w-full accent-blue-600"
-                        />
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={score}
-                            onChange={e => setScore(e.target.value)}
-                            placeholder="0~100"
-                            className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-500">점</span>
-                          {score && <span className="ml-auto text-2xl font-bold text-blue-700">{score}</span>}
+                    {selectedEvalType === '발표' ? (
+                      <div className="space-y-4">
+                        {PRES_CRITERIA.map(section => {
+                          const sectionTotal = section.items.reduce((sum, it) => sum + (subScores[it.key] ?? 0), 0);
+                          return (
+                            <div key={section.section} className="border border-gray-200 rounded-xl overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                                <span className="text-sm font-semibold text-gray-700">
+                                  {section.section}. {section.name}
+                                </span>
+                                <span className="text-sm font-bold text-blue-700">
+                                  {sectionTotal} / {section.total}점
+                                </span>
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {section.items.map(item => (
+                                  <div key={item.key} className="px-4 py-3">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <label className="text-xs text-gray-600">
+                                        {item.key}. {item.name}
+                                        <span className="ml-1 text-gray-400">(0~{item.max}점)</span>
+                                      </label>
+                                      <span className="text-sm font-bold text-blue-600 w-10 text-right">
+                                        {subScores[item.key] ?? 0}
+                                      </span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max={item.max}
+                                      step="0.5"
+                                      value={subScores[item.key] ?? 0}
+                                      onChange={e => setSubScore(item.key, parseFloat(e.target.value), item.max)}
+                                      className="w-full accent-blue-600"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center justify-between px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
+                          <span className="text-sm font-semibold text-blue-800">총점</span>
+                          <span className="text-2xl font-bold text-blue-700">{score || 0}점</span>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">점수 (0~100점)</label>
+                        <div className="space-y-2">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={score || 0}
+                            onChange={e => setScore(e.target.value)}
+                            className="w-full accent-blue-600"
+                          />
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={score}
+                              onChange={e => setScore(e.target.value)}
+                              placeholder="0~100"
+                              className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-500">점</span>
+                            {score && <span className="ml-auto text-2xl font-bold text-blue-700">{score}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -296,7 +404,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
                       <textarea
                         value={comment}
                         onChange={e => setComment(e.target.value)}
-                        rows={5}
+                        rows={4}
                         placeholder="평가 의견을 자유롭게 입력하세요."
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                       />
@@ -322,7 +430,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={submitting || !score}
+                      disabled={submitting || !score || parseFloat(score) === 0}
                       className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
                       {submitting ? '저장 중...' : selectedEv ? '수정 저장' : '평가 제출'}

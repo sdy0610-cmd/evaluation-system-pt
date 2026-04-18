@@ -17,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PT_ROOT = path.join(__dirname, '..');
 const PDF_DIR = path.join(PT_ROOT, 'candidates companies');
 
-const SUPABASE_URL = 'https://ednggeibiexrzvuoimjg.supabase.co';
+const SUPABASE_URL = 'https://shfezfvfimtzmytfqfp.supabase.co';
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 const BUCKET = 'startup-companies';
 const YEAR = 2026;

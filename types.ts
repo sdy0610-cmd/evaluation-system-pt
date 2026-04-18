@@ -89,6 +89,7 @@ export interface Evaluation {
   is_confirmed?: boolean;
   confirmed_at?: string;
   submitted_at?: string;
+  sub_scores?: Record<string, number>;
   evaluator?: Pick<Evaluator, 'id' | 'name' | 'evaluator_order'>;
 }
 
