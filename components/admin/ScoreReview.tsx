@@ -1,0 +1,565 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  getDivisions, getCompanies, getEvaluators, getEvaluations,
+  getBonusPointsBulk, adjustScore, confirmEvaluations, updateCompany,
+  upsertBonusPoint, calculateAvgScore, toggleKnockout
+} from '../../services/api';
+import type { Division, Company, Evaluator, Evaluation, BonusPoint } from '../../types';
+import { X, Check, AlertCircle } from 'lucide-react';
+
+interface Props {
+  year: number;
+  user: Evaluator;
+}
+
+interface ScoreRow {
+  company: Company;
+  evals: (Evaluation | null)[];  // index 0 = evaluator_order 1, etc.
+  scores: (number | null)[];
+  avg: number;
+  bonusTotal: number;
+  final: number;
+  hasKnockout: boolean;
+  allConfirmed: boolean;
+}
+
+export default function ScoreReview({ year, user }: Props) {
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  const [selectedDivId, setSelectedDivId] = useState('');
+  const [evalType, setEvalType] = useState<'서류' | '발표'>('서류');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [bonusMap, setBonusMap] = useState<Record<string, BonusPoint[]>>({});
+  const [loading, setLoading] = useState(false);
+  const [adjModal, setAdjModal] = useState<{ ev: Evaluation; company: Company } | null>(null);
+  const [adjScore, setAdjScore] = useState('');
+  const [adjReason, setAdjReason] = useState('');
+  const [adjSaving, setAdjSaving] = useState(false);
+  const [bonusModal, setBonusModal] = useState<{ company: Company; bonuses: BonusPoint[] } | null>(null);
+  const [bonusSaving, setBonusSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+
+  useEffect(() => {
+    getDivisions(year).then(divs => {
+      setDivisions(divs);
+      if (divs.length > 0) setSelectedDivId(divs[0].id);
+    });
+  }, [year]);
+
+  useEffect(() => {
+    if (!selectedDivId) return;
+    loadData();
+  }, [selectedDivId, evalType, year]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [cos, evs] = await Promise.all([
+        getCompanies(year, selectedDivId),
+        getEvaluators(year),
+      ]);
+      const divEvs = evs
+        .filter(e => e.division_id === selectedDivId && e.role !== 'admin')
+        .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+      setEvaluators(divEvs);
+
+      // For 발표, show only companies in stage 발표 or 완료
+      const filtered = cos.filter(c => !c.is_excluded && (
+        evalType === '서류' ? true : (c.stage === '발표' || c.stage === '완료')
+      ));
+      setCompanies(filtered);
+
+      const [evData, bps] = await Promise.all([
+        getEvaluations({ companyIds: filtered.map(c => c.project_no), type: evalType }),
+        getBonusPointsBulk(filtered.map(c => c.project_no)),
+      ]);
+      setEvaluations(evData);
+
+      const bm: Record<string, BonusPoint[]> = {};
+      bps.forEach(bp => {
+        if (!bm[bp.company_id]) bm[bp.company_id] = [];
+        bm[bp.company_id].push(bp);
+      });
+      setBonusMap(bm);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const rows = useMemo<ScoreRow[]>(() => {
+    const evalMap: Record<string, Record<string, Evaluation>> = {};
+    evaluations.forEach(ev => {
+      if (!evalMap[ev.company_id]) evalMap[ev.company_id] = {};
+      evalMap[ev.company_id][ev.evaluator_id] = ev;
+    });
+
+    return companies.map(co => {
+      // Map evaluator_order → evaluation
+      const evals: (Evaluation | null)[] = evaluators.map(ev => {
+        return evalMap[co.project_no]?.[ev.id] || null;
+      });
+
+      const scores: (number | null)[] = evals.map(ev => {
+        if (!ev) return null;
+        return ev.adjusted_score ?? ev.score ?? null;
+      });
+
+      const avg = calculateAvgScore(scores);
+      const bps = bonusMap[co.project_no] || [];
+      const bonusTotal = bps.reduce((s, b) => s + (b.points || 0), 0);
+      const hasKnockout = evals.some(ev => ev?.is_knockout);
+      const allConfirmed = evals.filter(ev => ev !== null).length > 0 &&
+        evals.every(ev => ev === null || ev.is_confirmed);
+
+      return {
+        company: co,
+        evals,
+        scores,
+        avg,
+        bonusTotal,
+        final: avg + bonusTotal,
+        hasKnockout,
+        allConfirmed,
+      };
+    });
+  }, [companies, evaluators, evaluations, bonusMap]);
+
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      if (a.hasKnockout !== b.hasKnockout) return a.hasKnockout ? 1 : -1;
+      return b.final - a.final;
+    });
+  }, [rows]);
+
+  function openAdjModal(ev: Evaluation, company: Company) {
+    if (ev.is_confirmed) return;
+    setAdjScore(String(ev.adjusted_score ?? ev.score ?? ''));
+    setAdjReason(ev.adjustment_reason || '');
+    setAdjModal({ ev, company });
+  }
+
+  async function handleAdjust() {
+    if (!adjModal || !adjModal.ev.id) return;
+    const sc = parseFloat(adjScore);
+    if (isNaN(sc) || sc < 0 || sc > 100) {
+      alert('0~100 사이의 점수를 입력하세요.');
+      return;
+    }
+    if (!adjReason.trim()) {
+      alert('수정 사유를 입력하세요.');
+      return;
+    }
+    setAdjSaving(true);
+    try {
+      await adjustScore(adjModal.ev.id!, sc, user.id, adjReason);
+      setAdjModal(null);
+      await loadData();
+    } finally {
+      setAdjSaving(false);
+    }
+  }
+
+  async function handleToggleKnockout(ev: Evaluation) {
+    if (!ev.id || ev.is_confirmed) return;
+    await toggleKnockout(ev.id, !ev.is_knockout);
+    await loadData();
+  }
+
+  async function handleSetResult(co: Company, result: string) {
+    await updateCompany(co.project_no, { result: (result || null) as any });
+    setCompanies(prev => prev.map(c => c.project_no === co.project_no ? { ...c, result: (result || null) as any } : c));
+  }
+
+  async function handleConfirmAll() {
+    if (!confirm(`${evalType}평가 점수를 확정하시겠습니까? 확정 후 수정이 불가합니다.`)) return;
+    setConfirming(true);
+    try {
+      const ids = companies.map(c => c.project_no);
+      await confirmEvaluations(ids, evalType, user.id);
+      await loadData();
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  async function handleAdvanceToPresentation() {
+    const passedCos = companies.filter(c => c.result === '통과' || c.result === '예비');
+    if (passedCos.length === 0) {
+      alert('통과/예비 기업이 없습니다.');
+      return;
+    }
+    if (!confirm(`통과/예비 기업 ${passedCos.length}개를 발표평가 단계로 이동하시겠습니까?`)) return;
+    setAdvancing(true);
+    try {
+      for (const co of passedCos) {
+        await updateCompany(co.project_no, { stage: '발표' });
+      }
+      await loadData();
+    } finally {
+      setAdvancing(false);
+    }
+  }
+
+  function openBonusModal(co: Company) {
+    const bps = bonusMap[co.project_no] || [];
+    const bonuses: BonusPoint[] = [
+      bps.find(b => b.bonus_type === '가점1') || { company_id: co.project_no, year, bonus_type: '가점1', points: 0, reason: '' },
+      bps.find(b => b.bonus_type === '가점2') || { company_id: co.project_no, year, bonus_type: '가점2', points: 0, reason: '' },
+      bps.find(b => b.bonus_type === '가점3') || { company_id: co.project_no, year, bonus_type: '가점3', points: 0, reason: '' },
+    ];
+    setBonusModal({ company: co, bonuses });
+  }
+
+  async function handleSaveBonus() {
+    if (!bonusModal) return;
+    setBonusSaving(true);
+    try {
+      for (const bp of bonusModal.bonuses) {
+        await upsertBonusPoint({ ...bp, company_id: bonusModal.company.project_no, year });
+      }
+      setBonusModal(null);
+      await loadData();
+    } finally {
+      setBonusSaving(false);
+    }
+  }
+
+  const confirmedCount = sortedRows.filter(r => r.allConfirmed).length;
+  const totalWithScores = sortedRows.filter(r => r.scores.some(s => s !== null)).length;
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">점수 집계</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{year}년도 점수 검토 및 확정</p>
+        </div>
+        <div className="flex gap-2 flex-wrap justify-end">
+          {evalType === '서류' && (
+            <button
+              onClick={handleAdvanceToPresentation}
+              disabled={advancing}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+            >
+              {advancing ? '이동 중...' : '발표평가 단계로 이동 →'}
+            </button>
+          )}
+          <button
+            onClick={handleConfirmAll}
+            disabled={confirming || totalWithScores === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+          >
+            {confirming ? '확정 중...' : '전체 점수 확정'}
+          </button>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex gap-3 mb-5 items-center flex-wrap">
+        <select
+          value={selectedDivId}
+          onChange={e => setSelectedDivId(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {divisions.map(d => (
+            <option key={d.id} value={d.id}>{d.division_label} — {d.division_name}</option>
+          ))}
+        </select>
+
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          {(['서류', '발표'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setEvalType(t)}
+              className={`px-5 py-2 text-sm font-medium transition-colors ${
+                evalType === t ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {t}평가
+            </button>
+          ))}
+        </div>
+
+        {!loading && (
+          <span className="text-sm text-gray-500">
+            {companies.length}개 기업 · 채점완료 {totalWithScores}개 · 확정 {confirmedCount}개
+          </span>
+        )}
+      </div>
+
+      {loading && (
+        <div className="py-12 text-center text-gray-400 text-sm">로딩 중...</div>
+      )}
+
+      {!loading && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 w-10">순위</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">과제번호</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">대표자</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 max-w-40">과제명</th>
+                  {evaluators.map(ev => (
+                    <th key={ev.id} className="px-3 py-3 text-center text-xs font-medium text-gray-500">
+                      위원{ev.evaluator_order}<br /><span className="font-normal text-gray-400">{ev.name}</span>
+                    </th>
+                  ))}
+                  {/* Pad for missing evaluators */}
+                  {Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
+                    <th key={`pad-${i}`} className="px-3 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
+                  ))}
+                  <th className="px-3 py-3 text-center text-xs font-medium text-blue-700 bg-blue-50">평점</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 cursor-pointer">가점</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-blue-900 bg-blue-50">최종</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">과락</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 min-w-20">결과</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">확정</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sortedRows.map((row, idx) => {
+                  const rank = row.hasKnockout ? '-' : idx + 1 - sortedRows.slice(0, idx).filter(r => r.hasKnockout).length;
+                  const co = row.company;
+                  return (
+                    <tr
+                      key={co.project_no}
+                      className={`hover:bg-gray-50 ${row.hasKnockout ? 'bg-red-50' : ''} ${row.allConfirmed ? '' : ''}`}
+                    >
+                      <td className="px-3 py-3 text-center">
+                        {row.hasKnockout ? (
+                          <span className="text-xs text-red-500 font-medium">과락</span>
+                        ) : (
+                          <span className="font-bold text-gray-700">{rank}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 font-mono text-xs text-gray-500">
+                        {co.project_no}
+                        {co.is_legend && <span className="ml-1 text-amber-500">★</span>}
+                        {co.is_doc_exempt && <span className="ml-1 text-purple-500 text-xs">면제</span>}
+                      </td>
+                      <td className="px-3 py-3 font-medium text-gray-900 text-xs">{co.representative}</td>
+                      <td className="px-3 py-3 text-gray-600 text-xs max-w-40 truncate" title={co.project_title}>{co.project_title}</td>
+
+                      {evaluators.map((ev, evIdx) => {
+                        const evaluation = row.evals[evIdx];
+                        const hasAdj = evaluation && evaluation.adjusted_score !== null && evaluation.adjusted_score !== undefined;
+                        const displayScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score) : null;
+                        const origScore = evaluation?.score;
+                        return (
+                          <td
+                            key={ev.id}
+                            className={`px-3 py-3 text-center ${
+                              !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
+                            } ${evaluation?.is_knockout ? 'bg-red-100' : ''}`}
+                            onClick={() => evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
+                          >
+                            {displayScore !== null && displayScore !== undefined ? (
+                              <div className="space-y-0.5">
+                                {hasAdj && (
+                                  <div className="text-xs text-gray-400 line-through">{origScore}</div>
+                                )}
+                                <div className={`font-medium text-sm ${hasAdj ? 'text-blue-700' : 'text-gray-800'}`}>
+                                  {displayScore}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300 text-xs">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      {/* Pad empty evaluator cols */}
+                      {Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
+                        <td key={`pad-${i}`} className="px-3 py-3 text-center text-gray-300 text-xs">-</td>
+                      ))}
+
+                      <td className="px-3 py-3 text-center bg-blue-50 font-semibold text-blue-800">
+                        {row.avg > 0 ? row.avg.toFixed(2) : '-'}
+                      </td>
+                      <td
+                        className="px-3 py-3 text-center cursor-pointer hover:bg-gray-100 text-green-700 font-medium"
+                        onClick={() => openBonusModal(co)}
+                      >
+                        {row.bonusTotal > 0 ? `+${row.bonusTotal}` : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-center bg-blue-50 font-bold text-blue-900">
+                        {row.final > 0 ? row.final.toFixed(2) : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => {
+                            const nonConfirmedEv = row.evals.find(ev => ev && !ev.is_confirmed);
+                            if (nonConfirmedEv) handleToggleKnockout(nonConfirmedEv);
+                          }}
+                          className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                            row.hasKnockout
+                              ? 'bg-red-500 text-white hover:bg-red-600'
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                        >
+                          {row.hasKnockout ? '과락' : '-'}
+                        </button>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <select
+                          value={co.result || ''}
+                          onChange={e => handleSetResult(co, e.target.value)}
+                          className={`text-xs rounded px-1.5 py-1 border focus:outline-none ${
+                            co.result === '통과' ? 'bg-green-100 text-green-700 border-green-300' :
+                            co.result === '예비' ? 'bg-orange-100 text-orange-600 border-orange-300' :
+                            co.result === '탈락' ? 'bg-red-100 text-red-600 border-red-300' :
+                            'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}
+                        >
+                          <option value="">-</option>
+                          <option value="통과">통과</option>
+                          <option value="예비">예비</option>
+                          <option value="탈락">탈락</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {row.allConfirmed ? (
+                          <span className="inline-flex items-center justify-center w-5 h-5 bg-green-500 text-white rounded-full">
+                            <Check size={12} />
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {sortedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={12 + evaluators.length} className="px-4 py-12 text-center text-gray-400">
+                      {divisions.length === 0
+                        ? '분과를 먼저 등록해주세요.'
+                        : `${evalType === '발표' ? '발표평가 대상 기업이 없습니다. 서류평가 탭에서 통과/예비 기업을 발표평가로 이동하세요.' : '이 분과의 기업이 없습니다.'}`
+                      }
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Score Adjustment Modal */}
+      {adjModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900">점수 수정</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {adjModal.company.representative} — {adjModal.ev.evaluator?.name}
+                </p>
+              </div>
+              <button onClick={() => setAdjModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-gray-700">원점수</label>
+                  <span className="text-lg font-bold text-gray-400">{adjModal.ev.score ?? '-'}</span>
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">수정 점수 *</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={adjScore}
+                  onChange={e => setAdjScore(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">수정 사유 *</label>
+                <textarea
+                  value={adjReason}
+                  onChange={e => setAdjReason(e.target.value)}
+                  rows={3}
+                  placeholder="수정 사유를 입력하세요"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+              <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-xs text-amber-700">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <span>원점수는 보존되며 수정 내역이 기록됩니다.</span>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setAdjModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={handleAdjust} disabled={adjSaving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {adjSaving ? '저장 중...' : '수정 저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bonus Modal */}
+      {bonusModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900">가점 입력</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{bonusModal.company.project_no} — {bonusModal.company.representative}</p>
+              </div>
+              <button onClick={() => setBonusModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {bonusModal.bonuses.map((bp, i) => (
+                <div key={bp.bonus_type} className="flex gap-3 items-center">
+                  <span className="w-14 text-sm font-medium text-gray-600 shrink-0">{bp.bonus_type}</span>
+                  <input
+                    value={bp.reason || ''}
+                    onChange={e => setBonusModal(m => m ? {
+                      ...m,
+                      bonuses: m.bonuses.map((b, idx) => idx === i ? { ...b, reason: e.target.value } : b)
+                    } : null)}
+                    placeholder="가점 사유"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={bp.points}
+                    onChange={e => setBonusModal(m => m ? {
+                      ...m,
+                      bonuses: m.bonuses.map((b, idx) => idx === i ? { ...b, points: parseFloat(e.target.value) || 0 } : b)
+                    } : null)}
+                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-500">점</span>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-gray-100 flex justify-between text-sm">
+                <span className="text-gray-600">합계</span>
+                <span className="font-bold text-green-700">
+                  +{bonusModal.bonuses.reduce((s, b) => s + (b.points || 0), 0)}점
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setBonusModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={handleSaveBonus} disabled={bonusSaving} className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+                {bonusSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
