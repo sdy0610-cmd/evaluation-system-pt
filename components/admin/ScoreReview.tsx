@@ -318,11 +318,11 @@ export default function ScoreReview({ year, user }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 w-10">순위</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">과제번호</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">분과</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">대표자</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 max-w-40">과제명</th>
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-8">순위</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-24">과제번호</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-28">분과</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-16">대표자</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 min-w-64">과제명</th>
                   {selectedDivId && evaluators.map(ev => (
                     <th
                       key={ev.id}
@@ -377,16 +377,16 @@ export default function ScoreReview({ year, user }: Props) {
                           <span className="font-bold text-gray-700">{rank}</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 font-mono text-xs text-gray-500">
+                      <td className="px-2 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">
                         {co.project_no}
                         {co.is_legend && <span className="ml-1 text-amber-500">★</span>}
                         {co.is_doc_exempt && <span className="ml-1 text-purple-500 text-xs">면제</span>}
                       </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {co.division?.division_name || '-'}
                       </td>
-                      <td className="px-3 py-3 font-medium text-gray-900 text-xs">{co.representative}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs max-w-40 truncate" title={co.project_title}>{co.project_title}</td>
+                      <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
+                      <td className="px-2 py-3 text-gray-600 text-xs" title={co.project_title}>{co.project_title}</td>
 
                       {selectedDivId && evaluators.map((ev, evIdx) => {
                         const evaluation = row.evals[evIdx];
