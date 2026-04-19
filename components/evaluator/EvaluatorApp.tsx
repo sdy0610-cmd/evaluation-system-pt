@@ -4,7 +4,7 @@ import {
   getGradeSettings, getEvaluators, calculateAvgScore, getExtraOpinionFields
 } from '../../services/api';
 import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile, GradeSetting, ExtraOpinionField } from '../../types';
-import { LogOut, X, CheckCircle, Clock, Star, FileCheck, Printer, BarChart2 } from 'lucide-react';
+import { LogOut, X, CheckCircle, Clock, Star, FileCheck, Printer, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react';
 import GradeDashboard from '../admin/GradeDashboard';
 
 interface CriteriaSection {
@@ -466,8 +466,32 @@ ${extraOpHtml}
             <div className="flex-1 bg-gray-800 flex flex-col">
               <div className="flex flex-col bg-gray-900">
                 <div className="flex items-center justify-between px-4 py-3">
-                  <div className="text-white text-sm font-medium">
-                    {selected.project_no}
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const idx = filtered.findIndex(c => c.project_no === selected.project_no);
+                      const prev = idx > 0 ? filtered[idx - 1] : null;
+                      const next = idx < filtered.length - 1 ? filtered[idx + 1] : null;
+                      return (
+                        <>
+                          <button
+                            onClick={() => prev && openCompany(prev)}
+                            disabled={!prev}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <ChevronLeft size={13} />이전
+                          </button>
+                          <span className="text-white text-sm font-medium">{selected.project_no}</span>
+                          <span className="text-gray-500 text-xs">({idx + 1}/{filtered.length})</span>
+                          <button
+                            onClick={() => next && openCompany(next)}
+                            disabled={!next}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          >
+                            다음<ChevronRight size={13} />
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
