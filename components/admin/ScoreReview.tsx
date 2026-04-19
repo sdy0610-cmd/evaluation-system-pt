@@ -362,26 +362,26 @@ export default function ScoreReview({ year, user }: Props) {
                     <th key={`pad-${i}`} className="px-3 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
                   ))}
                   <th
-                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors ${sortKey === 'avg' ? 'text-blue-800' : 'text-blue-600'}`}
+                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'avg' ? 'text-blue-800' : 'text-blue-600'}`}
                     onClick={() => toggleSort('avg')}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       평점{sortKey === 'avg' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">가점</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">가점</th>
                   <th
-                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors ${sortKey === 'final' ? 'text-blue-900' : 'text-blue-700'}`}
+                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'final' ? 'text-blue-900' : 'text-blue-700'}`}
                     onClick={() => toggleSort('final')}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       최종{sortKey === 'final' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">등급</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">과락</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 min-w-20">결과</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">확정</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">등급</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">과락</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-20">결과</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">확정</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
