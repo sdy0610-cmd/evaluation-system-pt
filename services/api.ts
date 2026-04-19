@@ -398,14 +398,16 @@ export async function listBucketFiles(): Promise<{ path: string; name: string; s
   const result: { path: string; name: string; size: number }[] = [];
 
   async function listFolder(prefix: string) {
-    const { data, error } = await supabase.storage.from('startup-companies').list(prefix, { limit: 1000 });
+    const { data, error } = await supabase.storage
+      .from('startup-companies')
+      .list(prefix || undefined, { limit: 1000, offset: 0 });
     if (error || !data) return;
     for (const item of data) {
-      if (item.id === null) {
-        // folder
-        await listFolder(prefix ? `${prefix}/${item.name}` : item.name);
+      const isFolder = !item.id || item.metadata == null;
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+      if (isFolder) {
+        await listFolder(fullPath);
       } else {
-        const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
         result.push({ path: fullPath, name: item.name, size: item.metadata?.size || 0 });
       }
     }
