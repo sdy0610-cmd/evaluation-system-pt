@@ -534,13 +534,23 @@ const COL_MAP: Record<string, string> = {
 };
 const NUM_FIELDS = new Set(['revenue', 'employees', 'revenue_target', 'employment_target', 'investment_target']);
 
-// Helper: find division_id by name or label (case-insensitive, partial match)
+// Normalize middle-dot variants (ㆍ U+318D, · U+00B7, • U+2022, ・ U+FF65) to ·
+function normDot(s: string): string {
+  return s.replace(/[\u318D\u2022\uFF65]/g, '\u00B7');
+}
+
+// Helper: find division_id by name or label (case-insensitive, partial match, dot-normalized)
 function resolveDivisionId(raw: string, divisions: Division[]): string | null {
-  const q = raw.trim().toLowerCase();
+  const q = normDot(raw.trim().toLowerCase());
+  const norm = (s: string) => normDot(s.toLowerCase());
+  // strip trailing number suffix for looser match (e.g. "공예·디자인 1" → "공예·디자인")
+  const qBase = q.replace(/\s+\d+$/, '').trim();
   return (
-    divisions.find(d => d.division_name.toLowerCase() === q)?.id ||
-    divisions.find(d => d.division_label.toLowerCase() === q)?.id ||
-    divisions.find(d => d.division_name.toLowerCase().includes(q) || q.includes(d.division_name.toLowerCase()))?.id ||
+    divisions.find(d => norm(d.division_name) === q)?.id ||
+    divisions.find(d => norm(d.division_label) === q)?.id ||
+    divisions.find(d => norm(d.division_name) === qBase)?.id ||
+    divisions.find(d => norm(d.division_name).includes(q) || q.includes(norm(d.division_name)))?.id ||
+    divisions.find(d => norm(d.division_name).includes(qBase) || qBase.includes(norm(d.division_name)))?.id ||
     null
   );
 }

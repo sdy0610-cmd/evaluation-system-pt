@@ -139,10 +139,11 @@ export default function EvaluatorsManager({ year }: Props) {
       const divLabelMap: Record<string, string> = {};
       const divNameMap: Record<string, string> = {};
       let liveDivisions = [...divisions];
+      const normDot = (s: string) => s.replace(/[\u318D\u2022\uFF65]/g, '\u00B7').toLowerCase();
       const refreshMaps = (divs: Division[]) => {
         divs.forEach(d => {
-          if (d.division_label) divLabelMap[d.division_label.toLowerCase()] = d.id;
-          divNameMap[d.division_name.toLowerCase()] = d.id;
+          if (d.division_label) divLabelMap[normDot(d.division_label)] = d.id;
+          divNameMap[normDot(d.division_name)] = d.id;
         });
       };
       refreshMaps(liveDivisions);
@@ -168,15 +169,17 @@ export default function EvaluatorsManager({ year }: Props) {
         delete obj._div_label;
         delete obj._div_name;
 
-        const searchKey = (rawLabel || rawName).toLowerCase();
+        const searchKey = normDot(rawLabel || rawName);
+        const searchBase = searchKey.replace(/\s+\d+$/, '').trim();
         let divId: string | null = null;
 
         if (searchKey) {
           divId = divLabelMap[searchKey] || divNameMap[searchKey] ||
+            divNameMap[searchBase] ||
             liveDivisions.find(d =>
-              d.division_name.toLowerCase().includes(searchKey) ||
-              searchKey.includes(d.division_name.toLowerCase()) ||
-              d.division_label.toLowerCase() === searchKey
+              normDot(d.division_name).includes(searchKey) ||
+              searchKey.includes(normDot(d.division_name)) ||
+              normDot(d.division_label) === searchKey
             )?.id || null;
 
           // Auto-create if still not found
