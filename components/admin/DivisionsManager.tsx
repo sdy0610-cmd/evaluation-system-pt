@@ -39,8 +39,8 @@ export default function DivisionsManager({ year }: Props) {
   }
 
   async function handleSave() {
-    if (!form.division_label.trim() || !form.division_name.trim()) {
-      setError('분과 코드와 분과명을 입력해주세요.');
+    if (!form.division_name.trim()) {
+      setError('분과명을 입력해주세요.');
       return;
     }
     setSaving(true);
@@ -64,7 +64,7 @@ export default function DivisionsManager({ year }: Props) {
   }
 
   async function handleDelete(div: Division) {
-    if (!confirm(`"${div.division_label} - ${div.division_name}" 분과를 삭제하시겠습니까?`)) return;
+    if (!confirm(`"${div.division_name}" 분과를 삭제하시겠습니까?`)) return;
     try {
       await deleteDivision(div.id);
       await load();
@@ -94,7 +94,7 @@ export default function DivisionsManager({ year }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              {['분과 코드', '분과명', '위원장', '배정 평가위원 (5명)', ''].map(h => (
+              {['분과명', '위원장', '배정 평가위원 (5명)', ''].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500">{h}</th>
               ))}
             </tr>
@@ -106,8 +106,7 @@ export default function DivisionsManager({ year }: Props) {
                 .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
               return (
                 <tr key={div.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-bold text-blue-700 text-base">{div.division_label}</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">{div.division_name}</td>
+                  <td className="px-5 py-4 font-bold text-blue-700 text-base">{div.division_name}</td>
                   <td className="px-5 py-4 text-gray-600">{div.chair_name || '-'}</td>
                   <td className="px-5 py-4">
                     <div className="flex flex-wrap gap-1">
@@ -159,15 +158,6 @@ export default function DivisionsManager({ year }: Props) {
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">분과 코드 *</label>
-                <input
-                  value={form.division_label}
-                  onChange={e => setForm(f => ({ ...f, division_label: e.target.value }))}
-                  placeholder="예: A, B, 정보통신1"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">분과명 *</label>
                 <input

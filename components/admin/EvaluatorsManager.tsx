@@ -210,7 +210,6 @@ export default function EvaluatorsManager({ year }: Props) {
           <div key={div.id} className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
               <span className="font-bold text-blue-800">{div.division_name}</span>
-              <span className="text-xs text-blue-500">{div.division_label}</span>
               <span className={`text-xs px-2 py-0.5 rounded-full ${evs.length === 5 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                 {evs.length}/5명
               </span>
