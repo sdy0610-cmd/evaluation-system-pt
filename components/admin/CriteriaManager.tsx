@@ -141,6 +141,8 @@ export default function CriteriaManager({ year }: Props) {
       await saveGradeSettings(year, updated.sort((a, b) => b.min_score - a.min_score).map((g, i) => ({ ...g, sort_order: i })));
       setGradeModal(null);
       await loadGrades();
+    } catch (e) {
+      alert(`저장 실패: ${(e as Error).message}`);
     } finally {
       setGradeSaving(false);
     }
