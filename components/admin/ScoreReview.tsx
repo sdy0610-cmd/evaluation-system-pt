@@ -2,10 +2,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   getDivisions, getCompanies, getEvaluators, getEvaluations,
   getBonusPointsBulk, adjustScore, confirmEvaluations, updateCompany,
-  upsertBonusPoint, calculateAvgScore, toggleKnockout
+  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore
 } from '../../services/api';
-import type { Division, Company, Evaluator, Evaluation, BonusPoint } from '../../types';
+import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting } from '../../types';
 import { X, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import GradeDashboard from './GradeDashboard';
 
 interface Props {
   year: number;
@@ -43,9 +44,12 @@ export default function ScoreReview({ year, user }: Props) {
   const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
   const [sortKey, setSortKey] = useState<string>('final');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [grades, setGrades] = useState<GradeSetting[]>([]);
+  const [showDashboard, setShowDashboard] = useState(true);
 
   useEffect(() => {
     getDivisions(year).then(setDivisions);
+    getGradeSettings(year).then(setGrades);
   }, [year]);
 
   useEffect(() => {
@@ -312,6 +316,22 @@ export default function ScoreReview({ year, user }: Props) {
         <div className="py-12 text-center text-gray-400 text-sm">로딩 중...</div>
       )}
 
+      {!loading && grades.length > 0 && (
+        <div className="mb-2">
+          <button onClick={() => setShowDashboard(d => !d)} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 mb-3 font-medium">
+            {showDashboard ? '▲ 등급 분포 숨기기' : '▼ 등급 분포 보기'}
+          </button>
+          {showDashboard && (
+            <GradeDashboard
+              grades={grades}
+              companies={companies}
+              finalScores={Object.fromEntries(rows.map(r => [r.company.project_no, r.final]))}
+              divisions={divisions}
+            />
+          )}
+        </div>
+      )}
+
       {!loading && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -322,7 +342,9 @@ export default function ScoreReview({ year, user }: Props) {
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-24">과제번호</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-28">분과</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-16">대표자</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 min-w-64">과제명</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-20">모집공고</th>
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-14">청/중</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 min-w-48">과제명</th>
                   {selectedDivId && evaluators.map(ev => (
                     <th
                       key={ev.id}
@@ -356,6 +378,7 @@ export default function ScoreReview({ year, user }: Props) {
                       최종{sortKey === 'final' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">등급</th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">과락</th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 min-w-20">결과</th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">확정</th>
@@ -386,6 +409,12 @@ export default function ScoreReview({ year, user }: Props) {
                         {co.division?.division_name || '-'}
                       </td>
                       <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
+                      <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap max-w-[80px] truncate" title={co.recruit_type || ''}>{co.recruit_type || '-'}</td>
+                      <td className="px-2 py-3 text-center">
+                        {co.age_group ? (
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{co.age_group}</span>
+                        ) : <span className="text-gray-300 text-xs">-</span>}
+                      </td>
                       <td className="px-2 py-3 text-gray-600 text-xs" title={co.project_title}>{co.project_title}</td>
 
                       {selectedDivId && evaluators.map((ev, evIdx) => {
@@ -432,6 +461,11 @@ export default function ScoreReview({ year, user }: Props) {
                       </td>
                       <td className="px-3 py-3 text-center bg-blue-50 font-bold text-blue-900">
                         {row.final > 0 ? row.final.toFixed(2) : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        {(() => { const g = row.final > 0 ? getGradeForScore(row.final, grades) : null; return g ? (
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${g.is_selected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{g.grade_name}</span>
+                        ) : <span className="text-gray-300 text-xs">-</span>; })()}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <button

@@ -130,6 +130,15 @@ export interface EvalCriterion {
   sort_order: number;
 }
 
+export interface GradeSetting {
+  id?: number;
+  year: number;
+  grade_name: string;
+  min_score: number;
+  is_selected: boolean;
+  sort_order: number;
+}
+
 export type AdminView =
   | 'dashboard'
   | 'divisions'

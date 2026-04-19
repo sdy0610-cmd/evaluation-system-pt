@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   getCompanies, getDivisions, getEvaluators, getEvaluations,
-  getBonusPointsBulk, exportResultsExcel, calculateAvgScore
+  getBonusPointsBulk, exportResultsExcel, calculateAvgScore, getGradeSettings
 } from '../../services/api';
-import type { Company, Division, Evaluator, Evaluation, BonusPoint } from '../../types';
+import type { Company, Division, Evaluator, Evaluation, BonusPoint, GradeSetting } from '../../types';
 import { Download, Printer } from 'lucide-react';
+import GradeDashboard from './GradeDashboard';
 
 interface Props {
   year: number;
@@ -21,9 +22,11 @@ export default function Report({ year, user }: Props) {
   const [exporting, setExporting] = useState(false);
   const [printDivId, setPrintDivId] = useState('');
   const [printEvalType, setPrintEvalType] = useState<'서류' | '발표'>('서류');
+  const [grades, setGrades] = useState<GradeSetting[]>([]);
 
   useEffect(() => {
     setLoading(true);
+    getGradeSettings(year).then(setGrades);
     Promise.all([
       getCompanies(year),
       getDivisions(year),
@@ -259,6 +262,27 @@ ${divEvs.map(ev => {
           ))}
         </div>
       </div>
+
+      {/* Grade distribution dashboard */}
+      {(() => {
+        const orderMap: Record<string, number> = {};
+        evaluators.forEach(e => { if (e.evaluator_order) orderMap[e.id] = e.evaluator_order; });
+        const finalScores: Record<string, number> = {};
+        active.forEach(co => {
+          const evsByDiv = evaluators.filter(e => e.division_id === co.division_id && e.role !== 'admin').sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+          const scores = evsByDiv.map(ev => {
+            const e = evaluations.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && ev2.evaluation_type === '발표')
+              || evaluations.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && ev2.evaluation_type === '서류');
+            return e ? (e.adjusted_score ?? e.score ?? null) : null;
+          });
+          const avg = calculateAvgScore(scores);
+          const bonus = bonusPoints.filter(bp => bp.company_id === co.project_no).reduce((s, b) => s + (b.points || 0), 0);
+          if (avg > 0) finalScores[co.project_no] = avg + bonus;
+        });
+        return (
+          <GradeDashboard grades={grades} companies={active} finalScores={finalScores} divisions={divisions} />
+        );
+      })()}
 
       {/* Division summary table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

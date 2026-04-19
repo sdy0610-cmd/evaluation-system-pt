@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion } from '../../services/api';
-import type { EvalCriterion } from '../../types';
-import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion, getGradeSettings, saveGradeSettings } from '../../services/api';
+import type { EvalCriterion, GradeSetting } from '../../types';
+import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
 
 interface Props { year: number; }
 
+type PageTab = '평가항목' | '등급설정';
 type EvalTypeTab = '서류' | '발표';
 
 const EMPTY_FORM = {
@@ -23,6 +24,7 @@ interface Section {
 }
 
 export default function CriteriaManager({ year }: Props) {
+  const [pageTab, setPageTab] = useState<PageTab>('평가항목');
   const [tab, setTab] = useState<EvalTypeTab>('서류');
   const [criteria, setCriteria] = useState<EvalCriterion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,19 @@ export default function CriteriaManager({ year }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Grade settings state
+  const [grades, setGrades] = useState<GradeSetting[]>([]);
+  const [gradeForm, setGradeForm] = useState({ grade_name: '', min_score: 0, is_selected: false });
+  const [gradeModal, setGradeModal] = useState<{ mode: 'add' | 'edit'; id?: number } | null>(null);
+  const [gradeSaving, setGradeSaving] = useState(false);
+
+  async function loadGrades() {
+    const data = await getGradeSettings(year);
+    setGrades(data);
+  }
+
+  useEffect(() => { loadGrades(); }, [year]);
 
   async function load() {
     setLoading(true);
@@ -106,6 +121,47 @@ export default function CriteriaManager({ year }: Props) {
     }
   }
 
+  async function handleGradeSave() {
+    if (!gradeForm.grade_name.trim()) { alert('등급명을 입력하세요.'); return; }
+    if (gradeForm.min_score < 0 || gradeForm.min_score > 100) { alert('기준점수는 0~100 사이여야 합니다.'); return; }
+    setGradeSaving(true);
+    try {
+      let updated: Omit<GradeSetting, 'id'>[];
+      if (gradeModal?.mode === 'edit' && gradeModal.id !== undefined) {
+        updated = grades.map(g => g.id === gradeModal.id
+          ? { year, grade_name: gradeForm.grade_name, min_score: gradeForm.min_score, is_selected: gradeForm.is_selected, sort_order: g.sort_order }
+          : { year, grade_name: g.grade_name, min_score: g.min_score, is_selected: g.is_selected, sort_order: g.sort_order }
+        );
+      } else {
+        updated = [
+          ...grades.map(g => ({ year, grade_name: g.grade_name, min_score: g.min_score, is_selected: g.is_selected, sort_order: g.sort_order })),
+          { year, grade_name: gradeForm.grade_name, min_score: gradeForm.min_score, is_selected: gradeForm.is_selected, sort_order: grades.length },
+        ];
+      }
+      await saveGradeSettings(year, updated.sort((a, b) => b.min_score - a.min_score).map((g, i) => ({ ...g, sort_order: i })));
+      setGradeModal(null);
+      await loadGrades();
+    } finally {
+      setGradeSaving(false);
+    }
+  }
+
+  async function handleGradeDelete(g: GradeSetting) {
+    if (!confirm(`"${g.grade_name}" 등급을 삭제하시겠습니까?`)) return;
+    const updated = grades.filter(gr => gr.id !== g.id).map((gr, i) => ({ year, grade_name: gr.grade_name, min_score: gr.min_score, is_selected: gr.is_selected, sort_order: i }));
+    await saveGradeSettings(year, updated);
+    await loadGrades();
+  }
+
+  async function toggleGradeSelected(g: GradeSetting) {
+    const updated = grades.map(gr => gr.id === g.id
+      ? { year, grade_name: gr.grade_name, min_score: gr.min_score, is_selected: !gr.is_selected, sort_order: gr.sort_order }
+      : { year, grade_name: gr.grade_name, min_score: gr.min_score, is_selected: gr.is_selected, sort_order: gr.sort_order }
+    );
+    await saveGradeSettings(year, updated);
+    await loadGrades();
+  }
+
   const totalPoints = criteria.reduce((s, c) => s + c.item_max, 0);
 
   return (
@@ -113,16 +169,79 @@ export default function CriteriaManager({ year }: Props) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">평가항목 설정</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{year}년도 평가 세부항목 관리</p>
+          <p className="text-sm text-gray-500 mt-0.5">{year}년도 평가 세부항목 및 등급 관리</p>
         </div>
-        <button
-          onClick={() => openAdd()}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={15} />항목 추가
-        </button>
+        {pageTab === '평가항목' && (
+          <button onClick={() => openAdd()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            <Plus size={15} />항목 추가
+          </button>
+        )}
+        {pageTab === '등급설정' && (
+          <button onClick={() => { setGradeForm({ grade_name: '', min_score: 0, is_selected: false }); setGradeModal({ mode: 'add' }); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            <Plus size={15} />등급 추가
+          </button>
+        )}
       </div>
 
+      {/* Page tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
+        {(['평가항목', '등급설정'] as PageTab[]).map(t => (
+          <button key={t} onClick={() => setPageTab(t)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${pageTab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Grade Settings Panel ─────────────────────────────────────── */}
+      {pageTab === '등급설정' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+            최종점수 기준으로 등급을 설정하고, <strong>선정</strong> 체크된 등급 이상의 기업이 점수집계 대시보드에 표시됩니다.
+          </div>
+          {grades.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400 text-sm">등록된 등급이 없습니다.</div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {['등급명', '기준점수 (이상)', '선정 등급', ''].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {[...grades].sort((a, b) => b.min_score - a.min_score).map(g => (
+                    <tr key={g.id} className={g.is_selected ? 'bg-green-50' : 'hover:bg-gray-50'}>
+                      <td className="px-5 py-3 font-medium text-gray-900">{g.grade_name}</td>
+                      <td className="px-5 py-3 text-gray-700">{g.min_score}점</td>
+                      <td className="px-5 py-3">
+                        <button onClick={() => toggleGradeSelected(g)}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                            g.is_selected ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}>
+                          {g.is_selected ? <><Check size={12} />선정</>: '미선정'}
+                        </button>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => { setGradeForm({ grade_name: g.grade_name, min_score: g.min_score, is_selected: g.is_selected }); setGradeModal({ mode: 'edit', id: g.id }); }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={13} /></button>
+                          <button onClick={() => handleGradeDelete(g)} className="p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors"><Trash2 size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {pageTab === '평가항목' && <>
       <div className="flex items-center gap-4 mb-6">
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
           {(['서류', '발표'] as EvalTypeTab[]).map(t => (
@@ -219,6 +338,8 @@ export default function CriteriaManager({ year }: Props) {
         </div>
       )}
 
+      </>}
+
       {modal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
@@ -305,6 +426,44 @@ export default function CriteriaManager({ year }: Props) {
                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {gradeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <h3 className="font-bold text-lg text-gray-900">{gradeModal.mode === 'add' ? '등급 추가' : '등급 수정'}</h3>
+              <button onClick={() => setGradeModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">등급명 *</label>
+                <input value={gradeForm.grade_name} onChange={e => setGradeForm(f => ({ ...f, grade_name: e.target.value }))}
+                  placeholder="예: 탁월, 최우수, 우수, 보통"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">기준점수 (이상) *</label>
+                <input type="number" min="0" max="100" value={gradeForm.min_score} onChange={e => setGradeForm(f => ({ ...f, min_score: +e.target.value }))}
+                  placeholder="예: 90"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-400 mt-1">이 점수 이상이면 해당 등급으로 분류됩니다.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setGradeForm(f => ({ ...f, is_selected: !f.is_selected }))}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${gradeForm.is_selected ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  <Check size={14} />{gradeForm.is_selected ? '선정 등급' : '미선정'}
+                </button>
+                <span className="text-xs text-gray-400">선정 등급은 점수집계 대시보드에 표시됩니다.</span>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setGradeModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={handleGradeSave} disabled={gradeSaving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {gradeSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

@@ -424,6 +424,32 @@ export async function bulkAddCompanyFiles(entries: Omit<import('../types').Compa
   if (error) throw error;
 }
 
+// ── Grade Settings ───────────────────────────────────────────────────────────
+export async function getGradeSettings(year: number): Promise<import('../types').GradeSetting[]> {
+  const { data, error } = await supabase
+    .from('startup_grade_settings')
+    .select('*')
+    .eq('year', year)
+    .order('min_score', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveGradeSettings(year: number, settings: Omit<import('../types').GradeSetting, 'id'>[]): Promise<void> {
+  await supabase.from('startup_grade_settings').delete().eq('year', year);
+  if (settings.length > 0) {
+    const { error } = await supabase.from('startup_grade_settings').insert(
+      settings.map((s, i) => ({ ...s, year, sort_order: i }))
+    );
+    if (error) throw error;
+  }
+}
+
+export function getGradeForScore(score: number, grades: import('../types').GradeSetting[]): import('../types').GradeSetting | null {
+  const sorted = [...grades].sort((a, b) => b.min_score - a.min_score);
+  return sorted.find(g => score >= g.min_score) || null;
+}
+
 // ── Excel Parsing (Company Import) ───────────────────────────────────────────
 const COL_MAP: Record<string, string> = {
   '과제번호': 'project_no',

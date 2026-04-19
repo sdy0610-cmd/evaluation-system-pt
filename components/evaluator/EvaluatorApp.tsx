@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles
+  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles,
+  getGradeSettings, getEvaluators, calculateAvgScore
 } from '../../services/api';
-import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile } from '../../types';
-import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer } from 'lucide-react';
+import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile, GradeSetting } from '../../types';
+import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer, BarChart2 } from 'lucide-react';
+import GradeDashboard from '../admin/GradeDashboard';
 
 interface CriteriaSection {
   section: number;
@@ -43,6 +45,10 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<'all' | '서류' | '발표'>('all');
+  const [grades, setGrades] = useState<GradeSetting[]>([]);
+  const [allEvals, setAllEvals] = useState<Evaluation[]>([]);
+  const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
+  const [showStats, setShowStats] = useState(false);
 
   // Evaluation form state
   const [score, setScore] = useState('');
@@ -68,10 +74,18 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       setDocSections(buildSections(docC));
       setPresSections(buildSections(presC));
       if (active.length > 0) {
-        const files = await getCompanyFiles(active.map(c => c.project_no));
+        const [files, ae, evrs, gs] = await Promise.all([
+          getCompanyFiles(active.map(c => c.project_no)),
+          getEvaluations({ companyIds: active.map(c => c.project_no) }),
+          getEvaluators(user.year),
+          getGradeSettings(user.year),
+        ]);
         const fm: Record<string, CompanyFile[]> = {};
         files.forEach(f => { if (!fm[f.company_id]) fm[f.company_id] = []; fm[f.company_id].push(f); });
         setCompanyFiles(fm);
+        setAllEvals(ae);
+        setAllEvaluators(evrs.filter(e => e.role !== 'admin'));
+        setGrades(gs);
       }
       setLoading(false);
     });
@@ -371,6 +385,12 @@ ${selected.recruit_type === '대학발' ? `
             </div>
           </div>
           <button
+            onClick={() => setShowStats(s => !s)}
+            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors border ${showStats ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 border-gray-200'}`}
+          >
+            <BarChart2 size={15} />등급 현황
+          </button>
+          <button
             onClick={handlePrintAllForms}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
           >
@@ -384,6 +404,25 @@ ${selected.recruit_type === '대학발' ? `
           </button>
         </div>
       </header>
+
+      {/* Grade distribution stats panel */}
+      {showStats && (
+        <div className="p-4 bg-gray-50 border-b border-gray-200">
+          {(() => {
+            const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+            const finalScores: Record<string, number> = {};
+            companies.forEach(co => {
+              const scores = divEvs.map(ev => {
+                const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id);
+                return e ? (e.adjusted_score ?? e.score ?? null) : null;
+              });
+              const avg = calculateAvgScore(scores);
+              if (avg > 0) finalScores[co.project_no] = avg;
+            });
+            return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
+          })()}
+        </div>
+      )}
 
       {/* Evaluation modal */}
       {selected && (
@@ -748,7 +787,10 @@ ${selected.recruit_type === '대학발' ? `
                 <div className="font-semibold text-gray-900 text-sm mb-1 leading-snug">{co.project_title}</div>
                 <div className="text-xs text-gray-500 mb-2">{co.representative}</div>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {co.age_group && (
+                      <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{co.age_group}</span>
+                    )}
                     <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{co.tech_field}</span>
                     {evalType && (
                       <span className={`px-1.5 py-0.5 text-xs rounded ${

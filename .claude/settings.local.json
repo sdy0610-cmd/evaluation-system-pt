@@ -6,7 +6,23 @@
       "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt' -Filter '*.xlsx' | Select-Object Name\")",
       "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt' -Filter '*샘플*' | Select-Object Name\")",
       "Bash(powershell -Command \"cd 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt'; node scripts/parse-evaluators.mjs\")",
-      "Bash(powershell -Command *)"
+      "Bash(powershell -Command *)",
+      "Bash(node -e ' *)",
+      "Bash(python3 -c \"import openpyxl; print\\('openpyxl available'\\)\")",
+      "Bash(python3 -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(unzip -l \"/c/Users/SDY/Desktop/AI/evaluation-system-pt/평가양식/위원①.xlsm\")",
+      "Bash(cd /tmp)",
+      "Bash(unzip -q \"/c/Users/SDY/Desktop/AI/evaluation-system-pt/평가양식/위원①.xlsm\")",
+      "Bash(cat)",
+      "Bash(chmod +x extract.sh)",
+      "Bash(./extract.sh)",
+      "Bash(python3)",
+      "Bash(python3 -c ' *)",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit *)"
     ]
   }
 }

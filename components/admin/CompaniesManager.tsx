@@ -22,6 +22,7 @@ export default function CompaniesManager({ year }: Props) {
   const [filterStage, setFilterStage] = useState('');
   const [filterResult, setFilterResult] = useState('');
   const [filterRecruit, setFilterRecruit] = useState('');
+  const [filterAge, setFilterAge] = useState('');
   const [modal, setModal] = useState<Company | null>(null);
   const [editForm, setEditForm] = useState<Partial<Company> & { bonuses: BonusPoint[] }>({ bonuses: [] });
   const [saving, setSaving] = useState(false);
@@ -161,6 +162,7 @@ export default function CompaniesManager({ year }: Props) {
     if (filterStage && c.stage !== filterStage) return false;
     if (filterResult && c.result !== filterResult) return false;
     if (filterRecruit && c.recruit_type !== filterRecruit) return false;
+    if (filterAge && c.age_group !== filterAge) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -276,6 +278,15 @@ export default function CompaniesManager({ year }: Props) {
           <option value="">전체 모집공고</option>
           {recruitTypes.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
+        <select
+          value={filterAge}
+          onChange={e => setFilterAge(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">청년/중장년 전체</option>
+          <option value="청년">청년</option>
+          <option value="중장년">중장년</option>
+        </select>
         <span className="flex items-center text-sm text-gray-500 px-2">{filtered.length}건</span>
       </div>
 
@@ -285,7 +296,7 @@ export default function CompaniesManager({ year }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {['과제번호', '대표자명', '자료', '모집공고', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
+                {['과제번호', '대표자명', '자료', '모집공고', '청/중', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -321,6 +332,13 @@ export default function CompaniesManager({ year }: Props) {
                     <td className="px-4 py-3">
                       {co.recruit_type ? (
                         <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium whitespace-nowrap">{co.recruit_type}</span>
+                      ) : <span className="text-gray-300 text-xs">-</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {co.age_group ? (
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                          co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                        }`}>{co.age_group}</span>
                       ) : <span className="text-gray-300 text-xs">-</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-48 truncate" title={co.project_title}>{co.project_title}</td>
