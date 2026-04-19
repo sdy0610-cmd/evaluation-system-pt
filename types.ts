@@ -126,6 +126,7 @@ export type AdminView =
   | 'companies'
   | 'score-review'
   | 'report'
-  | 'criteria';
+  | 'criteria'
+  | 'settings';
 
 export type AppView = 'login' | 'admin' | 'evaluator';

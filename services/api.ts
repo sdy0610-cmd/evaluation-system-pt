@@ -267,6 +267,57 @@ export async function confirmEvaluations(
   void confirmedBy;
 }
 
+// ── Settings / Snapshot ───────────────────────────────────────────────────────
+export async function resetYearEvalData(year: number): Promise<void> {
+  const { data: cos } = await supabase.from('startup_companies').select('project_no').eq('year', year);
+  const ids = (cos || []).map((c: any) => c.project_no);
+  if (ids.length > 0) {
+    await supabase.from('startup_evaluations').delete().in('company_id', ids);
+    await supabase.from('startup_bonus_points').delete().in('company_id', ids);
+  }
+  await supabase.from('startup_companies').update({ stage: '서류', result: null }).eq('year', year);
+}
+
+export async function exportYearEvalData(year: number): Promise<object> {
+  const { data: cos } = await supabase.from('startup_companies').select('*').eq('year', year);
+  const ids = (cos || []).map((c: any) => c.project_no);
+  const [evRes, bpRes] = await Promise.all([
+    ids.length > 0
+      ? supabase.from('startup_evaluations').select('*').in('company_id', ids)
+      : Promise.resolve({ data: [] }),
+    supabase.from('startup_bonus_points').select('*').eq('year', year),
+  ]);
+  return {
+    version: 1,
+    year,
+    exported_at: new Date().toISOString(),
+    companies: cos || [],
+    evaluations: (evRes as any).data || [],
+    bonus_points: (bpRes as any).data || [],
+  };
+}
+
+export async function importYearEvalData(data: any): Promise<void> {
+  if (data.companies?.length > 0) {
+    for (let i = 0; i < data.companies.length; i += 100) {
+      const { error } = await supabase.from('startup_companies').upsert(data.companies.slice(i, i + 100), { onConflict: 'project_no' });
+      if (error) throw error;
+    }
+  }
+  if (data.evaluations?.length > 0) {
+    for (let i = 0; i < data.evaluations.length; i += 100) {
+      const { error } = await supabase.from('startup_evaluations').upsert(data.evaluations.slice(i, i + 100), { onConflict: 'company_id,evaluator_id,evaluation_type' });
+      if (error) throw error;
+    }
+  }
+  if (data.bonus_points?.length > 0) {
+    for (let i = 0; i < data.bonus_points.length; i += 100) {
+      const { error } = await supabase.from('startup_bonus_points').upsert(data.bonus_points.slice(i, i + 100), { onConflict: 'company_id,bonus_type' });
+      if (error) throw error;
+    }
+  }
+}
+
 // ── Eval Criteria ─────────────────────────────────────────────────────────────
 export async function getEvalCriteria(year: number, evalType: string): Promise<EvalCriterion[]> {
   const { data, error } = await supabase

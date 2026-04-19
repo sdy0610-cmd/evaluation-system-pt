@@ -7,9 +7,10 @@ import CompaniesManager from './CompaniesManager';
 import ScoreReview from './ScoreReview';
 import Report from './Report';
 import CriteriaManager from './CriteriaManager';
+import SettingsManager from './SettingsManager';
 import {
   LayoutDashboard, Building2, Users, Briefcase,
-  ClipboardList, FileBarChart, LogOut, ChevronRight, ListChecks
+  ClipboardList, FileBarChart, LogOut, ChevronRight, ListChecks, Settings
 } from 'lucide-react';
 
 interface Props {
@@ -25,6 +26,7 @@ const NAV: { view: AdminView; label: string; Icon: any }[] = [
   { view: 'score-review', label: '점수 집계', Icon: ClipboardList },
   { view: 'report', label: '결과 보고서', Icon: FileBarChart },
   { view: 'criteria', label: '평가항목 설정', Icon: ListChecks },
+  { view: 'settings', label: '설정', Icon: Settings },
 ];
 
 export default function AdminApp({ user, onLogout }: Props) {
@@ -91,6 +93,7 @@ export default function AdminApp({ user, onLogout }: Props) {
         {view === 'score-review' && <ScoreReview year={year} user={user} />}
         {view === 'report' && <Report year={year} user={user} />}
         {view === 'criteria' && <CriteriaManager year={year} />}
+        {view === 'settings' && <SettingsManager year={year} />}
       </main>
     </div>
   );

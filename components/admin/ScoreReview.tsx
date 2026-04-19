@@ -5,7 +5,7 @@ import {
   upsertBonusPoint, calculateAvgScore, toggleKnockout
 } from '../../services/api';
 import type { Division, Company, Evaluator, Evaluation, BonusPoint } from '../../types';
-import { X, Check, AlertCircle } from 'lucide-react';
+import { X, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Props {
   year: number;
@@ -40,16 +40,15 @@ export default function ScoreReview({ year, user }: Props) {
   const [bonusSaving, setBonusSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
+  const [sortKey, setSortKey] = useState<string>('final');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
-    getDivisions(year).then(divs => {
-      setDivisions(divs);
-      if (divs.length > 0) setSelectedDivId(divs[0].id);
-    });
+    getDivisions(year).then(setDivisions);
   }, [year]);
 
   useEffect(() => {
-    if (!selectedDivId) return;
     loadData();
   }, [selectedDivId, evalType, year]);
 
@@ -57,15 +56,17 @@ export default function ScoreReview({ year, user }: Props) {
     setLoading(true);
     try {
       const [cos, evs] = await Promise.all([
-        getCompanies(year, selectedDivId),
+        getCompanies(year, selectedDivId || undefined),
         getEvaluators(year),
       ]);
-      const divEvs = evs
-        .filter(e => e.division_id === selectedDivId && e.role !== 'admin')
-        .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+      const nonAdmin = evs.filter(e => e.role !== 'admin');
+      setAllEvaluators(nonAdmin);
+      const divEvs = selectedDivId
+        ? nonAdmin.filter(e => e.division_id === selectedDivId)
+            .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0))
+        : [];
       setEvaluators(divEvs);
 
-      // For 발표, show only companies in stage 발표 or 완료
       const filtered = cos.filter(c => !c.is_excluded && (
         evalType === '서류' ? true : (c.stage === '발표' || c.stage === '완료')
       ));
@@ -96,10 +97,15 @@ export default function ScoreReview({ year, user }: Props) {
     });
 
     return companies.map(co => {
-      // Map evaluator_order → evaluation
-      const evals: (Evaluation | null)[] = evaluators.map(ev => {
-        return evalMap[co.project_no]?.[ev.id] || null;
-      });
+      const companyEvs = selectedDivId
+        ? evaluators
+        : allEvaluators
+            .filter(e => e.division_id === co.division_id)
+            .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+
+      const evals: (Evaluation | null)[] = companyEvs.map(ev =>
+        evalMap[co.project_no]?.[ev.id] || null
+      );
 
       const scores: (number | null)[] = evals.map(ev => {
         if (!ev) return null;
@@ -124,14 +130,25 @@ export default function ScoreReview({ year, user }: Props) {
         allConfirmed,
       };
     });
-  }, [companies, evaluators, evaluations, bonusMap]);
+  }, [companies, evaluators, allEvaluators, evaluations, bonusMap, selectedDivId]);
+
+  function toggleSort(key: string) {
+    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortKey(key); setSortDir('desc'); }
+  }
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
       if (a.hasKnockout !== b.hasKnockout) return a.hasKnockout ? 1 : -1;
-      return b.final - a.final;
+      let va: number, vb: number;
+      if (sortKey === 'avg') { va = a.avg; vb = b.avg; }
+      else if (sortKey.startsWith('ev-')) {
+        const idx = parseInt(sortKey.replace('ev-', '')) - 1;
+        va = a.scores[idx] ?? -1; vb = b.scores[idx] ?? -1;
+      } else { va = a.final; vb = b.final; }
+      return sortDir === 'desc' ? vb - va : va - vb;
     });
-  }, [rows]);
+  }, [rows, sortKey, sortDir]);
 
   function openAdjModal(ev: Evaluation, company: Company) {
     if (ev.is_confirmed) return;
@@ -264,6 +281,7 @@ export default function ScoreReview({ year, user }: Props) {
           onChange={e => setSelectedDivId(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
+          <option value="">전체</option>
           {divisions.map(d => (
             <option key={d.id} value={d.id}>{d.division_name}</option>
           ))}
@@ -302,20 +320,42 @@ export default function ScoreReview({ year, user }: Props) {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 w-10">순위</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">과제번호</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">분과</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500">대표자</th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 max-w-40">과제명</th>
-                  {evaluators.map(ev => (
-                    <th key={ev.id} className="px-3 py-3 text-center text-xs font-medium text-gray-500">
-                      위원{ev.evaluator_order}<br /><span className="font-normal text-gray-400">{ev.name}</span>
+                  {selectedDivId && evaluators.map(ev => (
+                    <th
+                      key={ev.id}
+                      className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      onClick={() => toggleSort(`ev-${ev.evaluator_order}`)}
+                    >
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>위원{ev.evaluator_order}</span>
+                        <span className="font-normal text-gray-400">{ev.name}</span>
+                        {sortKey === `ev-${ev.evaluator_order}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
+                      </div>
                     </th>
                   ))}
-                  {/* Pad for missing evaluators */}
-                  {Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
+                  {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
                     <th key={`pad-${i}`} className="px-3 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
                   ))}
-                  <th className="px-3 py-3 text-center text-xs font-medium text-blue-700 bg-blue-50">평점</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 cursor-pointer">가점</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-blue-900 bg-blue-50">최종</th>
+                  <th
+                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors ${sortKey === 'avg' ? 'text-blue-800' : 'text-blue-600'}`}
+                    onClick={() => toggleSort('avg')}
+                  >
+                    <div className="flex items-center justify-center gap-0.5">
+                      평점{sortKey === 'avg' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
+                    </div>
+                  </th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">가점</th>
+                  <th
+                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors ${sortKey === 'final' ? 'text-blue-900' : 'text-blue-700'}`}
+                    onClick={() => toggleSort('final')}
+                  >
+                    <div className="flex items-center justify-center gap-0.5">
+                      최종{sortKey === 'final' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
+                    </div>
+                  </th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">과락</th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 min-w-20">결과</th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500">확정</th>
@@ -342,10 +382,13 @@ export default function ScoreReview({ year, user }: Props) {
                         {co.is_legend && <span className="ml-1 text-amber-500">★</span>}
                         {co.is_doc_exempt && <span className="ml-1 text-purple-500 text-xs">면제</span>}
                       </td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {co.division?.division_name || '-'}
+                      </td>
                       <td className="px-3 py-3 font-medium text-gray-900 text-xs">{co.representative}</td>
                       <td className="px-3 py-3 text-gray-600 text-xs max-w-40 truncate" title={co.project_title}>{co.project_title}</td>
 
-                      {evaluators.map((ev, evIdx) => {
+                      {selectedDivId && evaluators.map((ev, evIdx) => {
                         const evaluation = row.evals[evIdx];
                         const hasAdj = evaluation && evaluation.adjusted_score !== null && evaluation.adjusted_score !== undefined;
                         const displayScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score) : null;
@@ -374,8 +417,7 @@ export default function ScoreReview({ year, user }: Props) {
                         );
                       })}
 
-                      {/* Pad empty evaluator cols */}
-                      {Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
+                      {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
                         <td key={`pad-${i}`} className="px-3 py-3 text-center text-gray-300 text-xs">-</td>
                       ))}
 
@@ -437,7 +479,7 @@ export default function ScoreReview({ year, user }: Props) {
                 })}
                 {sortedRows.length === 0 && (
                   <tr>
-                    <td colSpan={12 + evaluators.length} className="px-4 py-12 text-center text-gray-400">
+                    <td colSpan={20} className="px-4 py-12 text-center text-gray-400">
                       {divisions.length === 0
                         ? '분과를 먼저 등록해주세요.'
                         : `${evalType === '발표' ? '발표평가 대상 기업이 없습니다. 서류평가 탭에서 통과/예비 기업을 발표평가로 이동하세요.' : '이 분과의 기업이 없습니다.'}`
