@@ -400,8 +400,9 @@ export async function listBucketFiles(): Promise<{ path: string; name: string; s
   async function listFolder(prefix: string) {
     const { data, error } = await supabase.storage
       .from('startup-companies')
-      .list(prefix || undefined, { limit: 1000, offset: 0 });
-    if (error || !data) return;
+      .list(prefix, { limit: 1000, offset: 0 });
+    if (error) throw new Error(`스토리지 오류 [${prefix || 'root'}]: ${error.message}`);
+    if (!data) return;
     for (const item of data) {
       const isFolder = !item.id || item.metadata == null;
       const fullPath = prefix ? `${prefix}/${item.name}` : item.name;

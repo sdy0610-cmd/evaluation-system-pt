@@ -60,7 +60,8 @@ export default function StorageScanModal({ companies, year, onClose, onDone }: P
         return { path: f.path, name: f.name, companyId, confidence };
       });
       setRows(matched);
-      setScanMsg(`${files.length}개 파일 발견 · 매칭 ${matched.filter(r => r.companyId).length}개`);
+      const sample = files.length > 0 ? ` (예: ${files[0].name})` : '';
+      setScanMsg(`${files.length}개 파일 발견 · 매칭 ${matched.filter(r => r.companyId).length}개${sample}`);
     } catch (e) {
       setScanMsg(`오류: ${(e as Error).message}`);
     }
