@@ -40,6 +40,7 @@ export default function PrintCenter({ year, user }: Props) {
   const [presSections, setPresSections] = useState<CriteriaSection[]>([]);
   const [selectedDivId, setSelectedDivId] = useState('');
   const [evalType, setEvalType] = useState<EvalTypeTab>('발표');
+  const [selectedEvalId, setSelectedEvalId] = useState(''); // '' = 전체
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -204,10 +205,14 @@ ${pages.join('\n')}
 </html>`;
   }
 
+  const filteredEvaluators = selectedEvalId
+    ? evaluators.filter(e => e.id === selectedEvalId)
+    : evaluators;
+
   function printCompany(co: Company) {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml([co], evaluators);
+    const html = buildPrintHtml([co], filteredEvaluators);
     win.document.write(html);
     win.document.close();
   }
@@ -215,7 +220,7 @@ ${pages.join('\n')}
   function printAll() {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml(companies, evaluators);
+    const html = buildPrintHtml(companies, filteredEvaluators);
     win.document.write(html);
     win.document.close();
   }
@@ -234,12 +239,12 @@ ${pages.join('\n')}
       </div>
 
       {/* Division & type selectors */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex gap-2 flex-wrap">
           {divisions.map(d => (
             <button
               key={d.id}
-              onClick={() => setSelectedDivId(d.id)}
+              onClick={() => { setSelectedDivId(d.id); setSelectedEvalId(''); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                 selectedDivId === d.id
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -263,6 +268,36 @@ ${pages.join('\n')}
         </div>
       </div>
 
+      {/* Evaluator filter */}
+      {evaluators.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <span className="text-xs text-gray-500 shrink-0">위원 선택:</span>
+          <button
+            onClick={() => setSelectedEvalId('')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              selectedEvalId === ''
+                ? 'bg-slate-700 text-white border-slate-700'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            전체
+          </button>
+          {evaluators.map(ev => (
+            <button
+              key={ev.id}
+              onClick={() => setSelectedEvalId(ev.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                selectedEvalId === ev.id
+                  ? 'bg-slate-700 text-white border-slate-700'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              위원{ev.evaluator_order} {ev.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Company list */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -272,12 +307,12 @@ ${pages.join('\n')}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">총 {companies.length}개 기업 · 평가위원 {evaluators.length}명</p>
           </div>
-          {companies.length > 0 && evaluators.length > 0 && (
+          {companies.length > 0 && filteredEvaluators.length > 0 && (
             <button
               onClick={printAll}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              <Printer size={15} />전체 인쇄 ({companies.length * evaluators.length}매)
+              <Printer size={15} />전체 인쇄 ({companies.length * filteredEvaluators.length}매)
             </button>
           )}
         </div>
@@ -299,10 +334,10 @@ ${pages.join('\n')}
                   <span className="w-16 text-xs text-gray-500 shrink-0 text-center">{evalsForCo.length}/{evaluators.length}명</span>
                   <button
                     onClick={() => printCompany(co)}
-                    disabled={evaluators.length === 0}
+                    disabled={filteredEvaluators.length === 0}
                     className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-xs hover:bg-gray-100 disabled:opacity-40 transition-colors ml-3"
                   >
-                    <Printer size={12} />인쇄 ({evaluators.length}매)
+                    <Printer size={12} />인쇄 ({filteredEvaluators.length}매)
                   </button>
                 </div>
               );
