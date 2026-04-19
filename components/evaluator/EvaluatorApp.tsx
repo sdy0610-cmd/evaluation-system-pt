@@ -445,8 +445,9 @@ ${extraOpHtml}
             const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
             const finalScores: Record<string, number> = {};
             companies.forEach(co => {
+              const evalType = getActiveEvalType(co);
               const scores = divEvs.map(ev => {
-                const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id);
+                const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
                 return e ? (e.adjusted_score ?? e.score ?? null) : null;
               });
               const avg = calculateAvgScore(scores);
@@ -504,8 +505,9 @@ ${extraOpHtml}
                     const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
                     const finalScores: Record<string, number> = {};
                     companies.forEach(co => {
+                      const evalType = getActiveEvalType(co);
                       const scores = divEvs.map(ev => {
-                        const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id);
+                        const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
                         return e ? (e.adjusted_score ?? e.score ?? null) : null;
                       });
                       const avg = calculateAvgScore(scores);
