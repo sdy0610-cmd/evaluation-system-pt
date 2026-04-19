@@ -69,7 +69,11 @@ export default function GradeDashboard({ grades, companies, finalScores, divisio
               <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500">선정</th>
               <th className="px-4 py-2.5 text-center text-xs font-medium text-blue-600 bg-blue-50">전체</th>
               {showDivisions && divisions.map(d => (
-                <th key={d.id} className="px-4 py-2.5 text-center text-xs font-medium text-gray-500">{d.division_label || d.division_name}</th>
+                <th key={d.id} title={d.division_name}
+                  className="py-2.5 text-center font-medium text-gray-500 w-14"
+                  style={{ fontSize: d.division_name.length > 6 ? '9px' : d.division_name.length > 4 ? '10px' : '11px', lineHeight: '1.3', whiteSpace: 'normal', wordBreak: 'keep-all', padding: '6px 4px' }}>
+                  {d.division_name}
+                </th>
               ))}
               <th className="px-4 py-2.5 text-center text-xs font-medium text-blue-500">청년</th>
               <th className="px-4 py-2.5 text-center text-xs font-medium text-orange-500">중장년</th>
@@ -96,7 +100,7 @@ export default function GradeDashboard({ grades, companies, finalScores, divisio
                 </td>
                 <td className="px-4 py-2.5 text-center font-bold text-blue-700 bg-blue-50">{r.total}</td>
                 {showDivisions && divisions.map(d => (
-                  <td key={d.id} className="px-4 py-2.5 text-center text-gray-600">{r.byDiv[d.id] || 0}</td>
+                  <td key={d.id} className="py-2.5 text-center text-gray-600 text-xs w-14">{r.byDiv[d.id] || 0}</td>
                 ))}
                 <td className="px-4 py-2.5 text-center text-blue-600 font-medium">{r.youth > 0 ? r.youth : <span className="text-gray-300">-</span>}</td>
                 <td className="px-4 py-2.5 text-center text-orange-600 font-medium">{r.middle > 0 ? r.middle : <span className="text-gray-300">-</span>}</td>
@@ -106,7 +110,7 @@ export default function GradeDashboard({ grades, companies, finalScores, divisio
               <td className="px-4 py-2.5 text-gray-700 text-xs" colSpan={3}>합계</td>
               <td className="px-4 py-2.5 text-center text-blue-700 bg-blue-50">{scoredCos.length}</td>
               {showDivisions && divisions.map(d => (
-                <td key={d.id} className="px-4 py-2.5 text-center text-gray-600">
+                <td key={d.id} className="py-2.5 text-center text-gray-600 text-xs w-14">
                   {rows.reduce((s, r) => s + (r.byDiv[d.id] || 0), 0)}
                 </td>
               ))}
