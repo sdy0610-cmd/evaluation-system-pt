@@ -23,7 +23,7 @@ export default function SettingsManager({ year }: Props) {
     try {
       await resetYearEvalData(year);
       setResetStep(0);
-      showMsg('success', `${year}년도 평가 데이터가 초기화되었습니다.`);
+      showMsg('success', '평가 데이터가 초기화되었습니다.');
     } catch (e) {
       showMsg('error', (e as Error).message);
     } finally {
@@ -71,7 +71,7 @@ export default function SettingsManager({ year }: Props) {
     <div className="p-8 max-w-2xl">
       <div className="mb-8">
         <h1 className="text-xl font-bold text-gray-900">설정</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{year}년도 평가 시스템 관리</p>
+        <p className="text-sm text-gray-500 mt-0.5">평가 시스템 관리</p>
       </div>
 
       {msg && (
@@ -93,7 +93,7 @@ export default function SettingsManager({ year }: Props) {
                 <h2 className="font-semibold text-gray-900">평가 데이터 저장 (백업)</h2>
               </div>
               <p className="text-sm text-gray-500">
-                현재 {year}년도 기업 정보, 평가 점수, 가점 데이터를 JSON 파일로 내보냅니다.
+                현재 기업 정보, 평가 점수, 가점 데이터를 JSON 파일로 내보냅니다.
                 다른 환경에서 복원하거나 보관용으로 사용할 수 있습니다.
               </p>
             </div>
@@ -148,7 +148,8 @@ export default function SettingsManager({ year }: Props) {
                 <h2 className="font-semibold text-gray-900">평가 초기화</h2>
               </div>
               <p className="text-sm text-gray-500">
-                {year}년도 모든 평가 점수, 가점, 결과를 삭제하고 기업 단계를 서류평가로 되돌립니다.
+                기업 목록, 평가위원, 분과, 평가 점수, 평가항목을 모두 삭제합니다.
+                초기화 후 분과·평가위원·기업 업로드·평가항목을 처음부터 다시 설정할 수 있습니다.
                 <br />
                 <span className="text-red-500 font-medium">이 작업은 되돌릴 수 없습니다.</span> 초기화 전에 백업을 먼저 저장하세요.
               </p>

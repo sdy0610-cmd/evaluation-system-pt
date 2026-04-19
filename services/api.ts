@@ -269,13 +269,23 @@ export async function confirmEvaluations(
 
 // ── Settings / Snapshot ───────────────────────────────────────────────────────
 export async function resetYearEvalData(year: number): Promise<void> {
+  // Delete evaluations and bonus points via company IDs
   const { data: cos } = await supabase.from('startup_companies').select('project_no').eq('year', year);
   const ids = (cos || []).map((c: any) => c.project_no);
   if (ids.length > 0) {
     await supabase.from('startup_evaluations').delete().in('company_id', ids);
     await supabase.from('startup_bonus_points').delete().in('company_id', ids);
   }
-  await supabase.from('startup_companies').update({ stage: '서류', result: null }).eq('year', year);
+  // Delete companies, evaluators (non-admin), divisions, tech fields, criteria
+  await supabase.from('startup_companies').delete().eq('year', year);
+  await supabase.from('startup_evaluators').delete().eq('year', year).neq('role', 'admin');
+  await supabase.from('startup_eval_criteria').delete().eq('year', year);
+  const { data: divs } = await supabase.from('startup_divisions').select('id').eq('year', year);
+  if (divs && divs.length > 0) {
+    const divIds = divs.map((d: any) => d.id);
+    await supabase.from('startup_tech_fields').delete().in('division_id', divIds);
+  }
+  await supabase.from('startup_divisions').delete().eq('year', year);
 }
 
 export async function exportYearEvalData(year: number): Promise<object> {
