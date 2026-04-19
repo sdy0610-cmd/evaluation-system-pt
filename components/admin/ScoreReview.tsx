@@ -140,19 +140,41 @@ export default function ScoreReview({ year, user }: Props) {
 
   function toggleSort(key: string) {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
-    else { setSortKey(key); setSortDir('desc'); }
+    else { setSortKey(key); setSortDir(key === 'final' || key === 'avg' || key.startsWith('ev-') ? 'desc' : 'asc'); }
   }
 
   const sortedRows = useMemo(() => {
+    const numericKeys = new Set(['avg', 'final', 'bonus', 'knockout', 'confirmed']);
+    const resultOrder: Record<string, number> = { '통과': 0, '예비': 1, '탈락': 2, '': 3 };
+
     return [...rows].sort((a, b) => {
-      if (a.hasKnockout !== b.hasKnockout) return a.hasKnockout ? 1 : -1;
-      let va: number, vb: number;
-      if (sortKey === 'avg') { va = a.avg; vb = b.avg; }
-      else if (sortKey.startsWith('ev-')) {
+      const dir = sortDir === 'desc' ? -1 : 1;
+
+      if (sortKey === 'avg') return dir * (b.avg - a.avg);
+      if (sortKey === 'final') return dir * (b.final - a.final);
+      if (sortKey === 'bonus') return dir * (b.bonusTotal - a.bonusTotal);
+      if (sortKey === 'knockout') return dir * (Number(b.hasKnockout) - Number(a.hasKnockout));
+      if (sortKey === 'confirmed') return dir * (Number(b.allConfirmed) - Number(a.allConfirmed));
+      if (sortKey.startsWith('ev-')) {
         const idx = parseInt(sortKey.replace('ev-', '')) - 1;
-        va = a.scores[idx] ?? -1; vb = b.scores[idx] ?? -1;
-      } else { va = a.final; vb = b.final; }
-      return sortDir === 'desc' ? vb - va : va - vb;
+        const va = a.scores[idx] ?? -1, vb = b.scores[idx] ?? -1;
+        return dir * (vb - va);
+      }
+      if (sortKey === 'result') {
+        const ra = resultOrder[a.company.result || ''] ?? 3;
+        const rb = resultOrder[b.company.result || ''] ?? 3;
+        return dir * (ra - rb);
+      }
+
+      // String columns
+      let sa = '', sb = '';
+      if (sortKey === 'project_no') { sa = a.company.project_no; sb = b.company.project_no; }
+      else if (sortKey === 'division') { sa = a.company.division?.division_name || ''; sb = b.company.division?.division_name || ''; }
+      else if (sortKey === 'representative') { sa = a.company.representative; sb = b.company.representative; }
+      else if (sortKey === 'recruit_type') { sa = a.company.recruit_type || ''; sb = b.company.recruit_type || ''; }
+      else if (sortKey === 'age_group') { sa = a.company.age_group || ''; sb = b.company.age_group || ''; }
+      else if (sortKey === 'project_title') { sa = a.company.project_title; sb = b.company.project_title; }
+      return dir * sa.localeCompare(sb, 'ko');
     });
   }, [rows, sortKey, sortDir]);
 
@@ -380,12 +402,24 @@ export default function ScoreReview({ year, user }: Props) {
                     />
                   </th>
                   <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-8">순위</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-24">과제번호</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-28">분과</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-16">대표자</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-20">모집공고</th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-14">청/중</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 min-w-48">과제명</th>
+                  {[
+                    { key: 'project_no', label: '과제번호', cls: 'w-24 text-left' },
+                    { key: 'division',   label: '분과',   cls: 'w-28 text-left' },
+                    { key: 'representative', label: '대표자', cls: 'w-16 text-left' },
+                    { key: 'recruit_type',   label: '모집공고', cls: 'w-20 text-left' },
+                    { key: 'age_group',  label: '청/중',  cls: 'w-14 text-center' },
+                    { key: 'project_title',  label: '과제명', cls: 'min-w-48 text-left' },
+                  ].map(col => (
+                    <th key={col.key}
+                      className={`px-2 py-3 text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors whitespace-nowrap ${col.cls} ${sortKey === col.key ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        {col.label}
+                        {sortKey === col.key ? (sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />) : null}
+                      </span>
+                    </th>
+                  ))}
                   {selectedDivId && evaluators.map(ev => (
                     <th
                       key={ev.id}
@@ -410,7 +444,9 @@ export default function ScoreReview({ year, user }: Props) {
                       평점{sortKey === 'avg' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">가점</th>
+                  <th className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap ${sortKey === 'bonus' ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`} onClick={() => toggleSort('bonus')}>
+                    <span className="inline-flex items-center gap-0.5">가점{sortKey === 'bonus' ? (sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />) : null}</span>
+                  </th>
                   <th
                     className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'final' ? 'text-blue-900' : 'text-blue-700'}`}
                     onClick={() => toggleSort('final')}
@@ -420,9 +456,21 @@ export default function ScoreReview({ year, user }: Props) {
                     </div>
                   </th>
                   <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">등급</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">과락</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap min-w-20">결과</th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">확정</th>
+                  {[
+                    { key: 'knockout', label: '과락' },
+                    { key: 'result',   label: '결과' },
+                    { key: 'confirmed', label: '확정' },
+                  ].map(col => (
+                    <th key={col.key}
+                      className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap ${col.key === 'result' ? 'min-w-20' : ''} ${sortKey === col.key ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      onClick={() => toggleSort(col.key)}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        {col.label}
+                        {sortKey === col.key ? (sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />) : null}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
