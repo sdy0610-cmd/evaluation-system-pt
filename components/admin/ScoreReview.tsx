@@ -46,6 +46,8 @@ export default function ScoreReview({ year, user }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [grades, setGrades] = useState<GradeSetting[]>([]);
   const [showDashboard, setShowDashboard] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [advancingSelected, setAdvancingSelected] = useState(false);
 
   useEffect(() => {
     getDivisions(year).then(setDivisions);
@@ -207,19 +209,39 @@ export default function ScoreReview({ year, user }: Props) {
 
   async function handleAdvanceToPresentation() {
     const passedCos = companies.filter(c => c.result === '통과' || c.result === '예비');
-    if (passedCos.length === 0) {
-      alert('통과/예비 기업이 없습니다.');
-      return;
-    }
+    if (passedCos.length === 0) { alert('통과/예비 기업이 없습니다.'); return; }
     if (!confirm(`통과/예비 기업 ${passedCos.length}개를 발표평가 단계로 이동하시겠습니까?`)) return;
     setAdvancing(true);
     try {
-      for (const co of passedCos) {
-        await updateCompany(co.project_no, { stage: '발표' });
-      }
+      for (const co of passedCos) await updateCompany(co.project_no, { stage: '발표' });
       await loadData();
     } finally {
       setAdvancing(false);
+    }
+  }
+
+  async function handleAdvanceSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}개 기업을 발표평가 단계로 이동하시겠습니까?`)) return;
+    setAdvancingSelected(true);
+    try {
+      for (const id of selected) await updateCompany(id, { stage: '발표' });
+      setSelected(new Set());
+      await loadData();
+    } finally {
+      setAdvancingSelected(false);
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === sortedRows.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sortedRows.map(r => r.company.project_no)));
     }
   }
 
@@ -259,6 +281,15 @@ export default function ScoreReview({ year, user }: Props) {
           <p className="text-sm text-gray-500 mt-0.5">{year}년도 점수 검토 및 확정</p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
+          {evalType === '서류' && selected.size > 0 && (
+            <button
+              onClick={handleAdvanceSelected}
+              disabled={advancingSelected}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+            >
+              {advancingSelected ? '이동 중...' : `선택 ${selected.size}개 발표평가 이동 →`}
+            </button>
+          )}
           {evalType === '서류' && (
             <button
               onClick={handleAdvanceToPresentation}
@@ -338,6 +369,13 @@ export default function ScoreReview({ year, user }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-2 py-3 text-center w-8">
+                    <input type="checkbox"
+                      checked={sortedRows.length > 0 && selected.size === sortedRows.length}
+                      onChange={toggleSelectAll}
+                      className="w-3.5 h-3.5 rounded cursor-pointer accent-blue-600"
+                    />
+                  </th>
                   <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-8">순위</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-24">과제번호</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 w-28">분과</th>
@@ -391,8 +429,15 @@ export default function ScoreReview({ year, user }: Props) {
                   return (
                     <tr
                       key={co.project_no}
-                      className={`hover:bg-gray-50 ${row.hasKnockout ? 'bg-red-50' : ''} ${row.allConfirmed ? '' : ''}`}
+                      className={`hover:bg-gray-50 ${row.hasKnockout ? 'bg-red-50' : ''} ${selected.has(co.project_no) ? 'bg-blue-50' : ''}`}
                     >
+                      <td className="px-2 py-3 text-center">
+                        <input type="checkbox"
+                          checked={selected.has(co.project_no)}
+                          onChange={() => toggleSelect(co.project_no)}
+                          className="w-3.5 h-3.5 rounded cursor-pointer accent-blue-600"
+                        />
+                      </td>
                       <td className="px-3 py-3 text-center">
                         {row.hasKnockout ? (
                           <span className="text-xs text-red-500 font-medium">과락</span>
