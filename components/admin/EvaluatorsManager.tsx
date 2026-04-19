@@ -287,7 +287,7 @@ export default function EvaluatorsManager({ year }: Props) {
                   >
                     <option value="">분과 없음</option>
                     {divisions.map(d => (
-                      <option key={d.id} value={d.id}>{d.division_label} - {d.division_name}</option>
+                      <option key={d.id} value={d.id}>{d.division_name}</option>
                     ))}
                   </select>
                 </div>

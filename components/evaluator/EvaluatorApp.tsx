@@ -218,7 +218,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
           <div>
             <h1 className="font-bold text-gray-900">창업중심대학 참여기업 평가</h1>
             <p className="text-xs text-gray-500">
-              {user.year}년도 · {user.division?.division_label}분과 · 위원{user.evaluator_order} {user.name}
+              {user.year}년도 · {user.division?.division_name} · 위원{user.evaluator_order} {user.name}
             </p>
           </div>
         </div>

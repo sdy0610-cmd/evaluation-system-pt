@@ -220,7 +220,7 @@ ${divEvs.map(ev => {
               onChange={e => setPrintDivId(e.target.value)}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {divisions.map(d => <option key={d.id} value={d.id}>{d.division_label} — {d.division_name}</option>)}
+              {divisions.map(d => <option key={d.id} value={d.id}>{d.division_name}</option>)}
             </select>
             <div className="flex rounded-lg border border-gray-300 overflow-hidden">
               {(['서류', '발표'] as const).map(t => (
@@ -280,8 +280,7 @@ ${divEvs.map(ev => {
                 const undecided = cs.filter(c => !c.result);
                 return (
                   <tr key={div.id}>
-                    <td className="px-4 py-3 font-bold text-blue-700">{div.division_label}</td>
-                    <td className="px-4 py-3">{div.division_name}</td>
+                    <td className="px-4 py-3 font-bold text-blue-700">{div.division_name}</td>
                     <td className="px-4 py-3 text-gray-500">{div.chair_name || '-'}</td>
                     <td className="px-4 py-3 font-medium">{cs.length}</td>
                     <td className="px-4 py-3 text-purple-600">{cs.filter(c => c.is_doc_exempt).length}</td>

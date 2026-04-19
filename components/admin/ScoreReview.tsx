@@ -265,7 +265,7 @@ export default function ScoreReview({ year, user }: Props) {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {divisions.map(d => (
-            <option key={d.id} value={d.id}>{d.division_label} — {d.division_name}</option>
+            <option key={d.id} value={d.id}>{d.division_name}</option>
           ))}
         </select>
 

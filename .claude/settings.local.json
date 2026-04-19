@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:iezgmddstgvtpmuvfscl.supabase.co)"
+      "WebFetch(domain:iezgmddstgvtpmuvfscl.supabase.co)",
+      "Bash(powershell -Command \"node --version; npm --version\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt' -Filter '*.xlsx' | Select-Object Name\")",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt' -Filter '*샘플*' | Select-Object Name\")",
+      "Bash(powershell -Command \"cd 'C:\\\\Users\\\\SDY\\\\Desktop\\\\AI\\\\evaluation-system-pt'; node scripts/parse-evaluators.mjs\")",
+      "Bash(powershell -Command *)"
     ]
   }
 }

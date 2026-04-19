@@ -95,8 +95,7 @@ export default function Dashboard({ year }: Props) {
                 const cs = companies.filter(c => c.division_id === div.id && !c.is_excluded);
                 return (
                   <tr key={div.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-bold text-blue-700">{div.division_label}</td>
-                    <td className="px-4 py-3 text-gray-700">{div.division_name}</td>
+                    <td className="px-4 py-3 font-bold text-blue-700">{div.division_name}</td>
                     <td className="px-4 py-3 text-gray-500">{div.chair_name || '-'}</td>
                     <td className="px-4 py-3 font-medium">{cs.length}</td>
                     <td className="px-4 py-3 text-purple-600">{cs.filter(c => c.is_doc_exempt).length}</td>
