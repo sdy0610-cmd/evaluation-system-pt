@@ -3,7 +3,7 @@ import {
   getCompanies, getEvaluations, saveEvaluation, getFileUrl
 } from '../../services/api';
 import type { Evaluator, Company, Evaluation } from '../../types';
-import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck } from 'lucide-react';
+import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer } from 'lucide-react';
 
 const PRES_CRITERIA = [
   {
@@ -64,6 +64,8 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [score, setScore] = useState('');
   const [subScores, setSubScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
+  const [regionMatch, setRegionMatch] = useState<boolean | null>(null);
+  const [regionMatchComment, setRegionMatchComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
 
@@ -112,12 +114,61 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
       }
       setComment(ev?.comment || '');
+      setRegionMatch(ev?.region_match ?? null);
+      setRegionMatchComment(ev?.region_match_comment || '');
     } else {
       setScore('');
       setSubScores({});
       setComment('');
+      setRegionMatch(null);
+      setRegionMatchComment('');
     }
     setSubmitMsg('');
+  }
+
+  function handlePrintEvalForm() {
+    if (!selected || !selectedEv) return;
+    const sc = selectedEv.adjusted_score ?? selectedEv.score ?? 0;
+    const ss = selectedEv.sub_scores as Record<string, number> | undefined;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const subsHtml = ss ? PRES_CRITERIA.map(sec => `
+      <tr><td colspan="3" style="background:#f5f5f5;font-weight:bold;padding:4px 8px">${sec.section}. ${sec.name} (${sec.total}점)</td></tr>
+      ${sec.items.map(it => `<tr><td style="padding:3px 8px;padding-left:20px">${it.key}. ${it.name}</td><td style="text-align:center">${it.max}점</td><td style="text-align:center">${ss[it.key] ?? 0}점</td></tr>`).join('')}
+    `).join('') : `<tr><td colspan="2">점수</td><td style="text-align:center">${sc}점</td></tr>`;
+
+    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<style>body{font-family:'Malgun Gothic',sans-serif;font-size:11px;margin:20px}
+h2{text-align:center;font-size:15px;margin-bottom:4px}
+.meta{text-align:center;font-size:11px;color:#555;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;margin-bottom:12px}
+th,td{border:1px solid #999;padding:4px 6px}th{background:#eee}
+.sig{margin-top:30px;font-size:11px}.no-print{margin:10px}
+@media print{.no-print{display:none}}</style></head><body>
+<button class="no-print" onclick="window.print()">인쇄</button>
+<h2>${user.year}년도 창업중심대학 참여기업 선발 발표평가표</h2>
+<div class="meta">분과: ${user.division?.division_name} &nbsp;|&nbsp; 평가위원: 위원${user.evaluator_order} ${user.name}</div>
+<table>
+  <tr><th>과제번호</th><td>${selected.project_no}</td><th>과제명</th><td colspan="3">${selected.project_title}</td></tr>
+  <tr><th>대표자</th><td>${selected.representative}</td><th>지원유형</th><td colspan="3">${selected.recruit_type || '-'}</td></tr>
+</table>
+<table><thead><tr><th>평가항목</th><th>배점</th><th>점수</th></tr></thead><tbody>
+${subsHtml}
+<tr style="font-weight:bold;background:#e8f0fe"><td colspan="2">총 점</td><td style="text-align:center">${sc}점</td></tr>
+</tbody></table>
+<table><thead><tr><th>평가의견</th></tr></thead><tbody>
+<tr><td style="min-height:60px;padding:8px">${selectedEv.comment || ''}</td></tr>
+${selected.recruit_type === '대학발' ? `
+<tr><th>지역주력산업 일치 여부</th></tr>
+<tr><td>${selectedEv.region_match === true ? '✅ 일치' : selectedEv.region_match === false ? '❌ 불일치' : '-'}</td></tr>
+<tr><th>지역주력산업 관련 의견</th></tr>
+<tr><td style="min-height:40px;padding:8px">${selectedEv.region_match_comment || ''}</td></tr>` : ''}
+</tbody></table>
+<div class="sig">
+  <p>위 평가 결과가 사실임을 확인합니다.</p>
+  <p>평가일: ${user.year}년 &nbsp;&nbsp; 월 &nbsp;&nbsp; 일 &nbsp;&nbsp;&nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (서명)</p>
+</div></body></html>`);
+    win.document.close();
   }
 
   function setSubScore(key: string, val: number, max: number) {
@@ -153,6 +204,8 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         score: sc,
         sub_scores: evalType === '발표' && Object.keys(subScores).length > 0 ? subScores : undefined,
         comment: comment.trim() || undefined,
+        region_match: selected.recruit_type === '대학발' ? (regionMatch ?? undefined) : undefined,
+        region_match_comment: selected.recruit_type === '대학발' ? (regionMatchComment.trim() || undefined) : undefined,
         submitted_at: new Date().toISOString(),
       });
       setEvaluations(prev => {
@@ -410,17 +463,58 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
                       />
                       <div className="text-right text-xs text-gray-400 mt-1">{comment.length}자</div>
                     </div>
+
+                    {selected?.recruit_type === '대학발' && (
+                      <div className="border border-amber-200 rounded-xl p-4 bg-amber-50 space-y-3">
+                        <div className="text-sm font-semibold text-amber-800">대학발 추가 의견</div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">지역주력산업과 창업아이템 일치 여부</label>
+                          <div className="flex gap-4">
+                            {[{ val: true, label: '✅ 일치' }, { val: false, label: '❌ 불일치' }].map(({ val, label }) => (
+                              <label key={String(val)} className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="regionMatch"
+                                  checked={regionMatch === val}
+                                  onChange={() => setRegionMatch(val)}
+                                  className="accent-amber-600"
+                                />
+                                <span className="text-sm">{label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1.5">일치/불일치 관련 의견</label>
+                          <textarea
+                            value={regionMatchComment}
+                            onChange={e => setRegionMatchComment(e.target.value)}
+                            rows={3}
+                            placeholder="지역주력산업과의 관련성에 대한 의견을 입력하세요."
+                            className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
 
-              {!isConfirmed && (
-                <div className="px-6 pb-6 pt-2 border-t border-gray-100">
-                  {submitMsg && (
-                    <div className="mb-3 p-2.5 bg-green-50 text-green-700 text-sm rounded-lg text-center">
-                      {submitMsg}
-                    </div>
-                  )}
+              <div className="px-6 pb-6 pt-2 border-t border-gray-100">
+                {submitMsg && (
+                  <div className="mb-3 p-2.5 bg-green-50 text-green-700 text-sm rounded-lg text-center">
+                    {submitMsg}
+                  </div>
+                )}
+                {isConfirmed && selectedEv && (
+                  <button
+                    onClick={handlePrintEvalForm}
+                    className="w-full mb-3 flex items-center justify-center gap-2 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
+                  >
+                    <Printer size={14} />평가표 인쇄
+                  </button>
+                )}
+                {!isConfirmed && (
                   <div className="flex gap-3">
                     <button
                       onClick={() => setSelected(null)}
@@ -436,8 +530,16 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
                       {submitting ? '저장 중...' : selectedEv ? '수정 저장' : '평가 제출'}
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+                {selectedEv && !isConfirmed && (
+                  <button
+                    onClick={handlePrintEvalForm}
+                    className="w-full mt-2 flex items-center justify-center gap-2 py-2 border border-gray-200 text-gray-500 rounded-xl text-xs hover:bg-gray-50"
+                  >
+                    <Printer size={12} />평가표 인쇄 (임시)
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

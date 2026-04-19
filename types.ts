@@ -90,6 +90,8 @@ export interface Evaluation {
   confirmed_at?: string;
   submitted_at?: string;
   sub_scores?: Record<string, number>;
+  region_match?: boolean;
+  region_match_comment?: string;
   evaluator?: Pick<Evaluator, 'id' | 'name' | 'evaluator_order'>;
 }
 

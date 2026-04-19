@@ -4,7 +4,8 @@ import {
   parseCompanyExcel, getBonusPointsBulk, upsertBonusPoint
 } from '../../services/api';
 import type { Company, Division, BonusPoint } from '../../types';
-import { Upload, Edit2, X, Search, Filter, Star, AlertTriangle, FileCheck } from 'lucide-react';
+import { Upload, Download, Edit2, X, Search, Filter, Star, AlertTriangle, FileCheck } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props { year: number; }
 
@@ -73,6 +74,16 @@ export default function CompaniesManager({ year }: Props) {
     }
   }
 
+  function handleTemplateDownload() {
+    const headers = ['과제번호', '과제명', '지원유형(모집공고)', '창업아이템명', '업력', '청/중장년', '성별', '매출액', '사원수(고용)', '전문기술분야', '대표자명', '이메일', '연락처', '비고'];
+    const example = ['C2026-001', '(예시) AI 기반 재고관리', '지역기반', 'AI 재고관리 SaaS', '1', '청년', '남', '0', '2', '정보·통신', '홍길동', 'hong@example.com', '010-0000-0000', ''];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    ws['!cols'] = headers.map(() => ({ wch: 18 }));
+    XLSX.utils.book_append_sheet(wb, ws, '대상');
+    XLSX.writeFile(wb, `평가대상자_업로드양식_${year}.xlsx`);
+  }
+
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -124,13 +135,21 @@ export default function CompaniesManager({ year }: Props) {
         </div>
         <div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={importing}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            <Upload size={15} />{importing ? '가져오는 중...' : 'Excel 가져오기'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleTemplateDownload}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              <Download size={15} />양식 다운로드
+            </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={importing}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              <Upload size={15} />{importing ? '가져오는 중...' : 'Excel 가져오기'}
+            </button>
+          </div>
         </div>
       </div>
 
