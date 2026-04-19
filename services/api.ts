@@ -472,6 +472,40 @@ export function getGradeForScore(score: number, grades: import('../types').Grade
   return sorted.find(g => score >= g.min_score) || null;
 }
 
+// ── Extra Opinion Fields ─────────────────────────────────────────────────────
+export async function getExtraOpinionFields(year: number): Promise<import('../types').ExtraOpinionField[]> {
+  const { data, error } = await supabase
+    .from('startup_extra_opinion_fields')
+    .select('*')
+    .eq('year', year)
+    .order('recruit_type')
+    .order('sort_order');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertExtraOpinionField(field: import('../types').ExtraOpinionField): Promise<import('../types').ExtraOpinionField> {
+  const payload: Record<string, unknown> = {
+    year: field.year,
+    recruit_type: field.recruit_type,
+    field_label: field.field_label,
+    sort_order: field.sort_order,
+  };
+  if (field.id) payload.id = field.id;
+  const { data, error } = await supabase
+    .from('startup_extra_opinion_fields')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteExtraOpinionField(id: number): Promise<void> {
+  const { error } = await supabase.from('startup_extra_opinion_fields').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── Excel Parsing (Company Import) ───────────────────────────────────────────
 const COL_MAP: Record<string, string> = {
   '과제번호': 'project_no',

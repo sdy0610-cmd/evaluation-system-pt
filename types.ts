@@ -101,6 +101,7 @@ export interface Evaluation {
   confirmed_at?: string;
   submitted_at?: string;
   sub_scores?: Record<string, number>;
+  extra_opinions?: Record<string, string>;
   region_match?: boolean;
   region_match_comment?: string;
   evaluator?: Pick<Evaluator, 'id' | 'name' | 'evaluator_order'>;
@@ -127,6 +128,14 @@ export interface EvalCriterion {
   item_key: string;
   item_name: string;
   item_max: number;
+  sort_order: number;
+}
+
+export interface ExtraOpinionField {
+  id?: number;
+  year: number;
+  recruit_type: string;
+  field_label: string;
   sort_order: number;
 }
 
