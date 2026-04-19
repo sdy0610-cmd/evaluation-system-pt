@@ -208,12 +208,15 @@ export default function ScoreReview({ year, user }: Props) {
   }
 
   async function handleAdvanceToPresentation() {
-    const passedCos = companies.filter(c => c.result === '통과' || c.result === '예비');
-    if (passedCos.length === 0) { alert('통과/예비 기업이 없습니다.'); return; }
-    if (!confirm(`통과/예비 기업 ${passedCos.length}개를 발표평가 단계로 이동하시겠습니까?`)) return;
+    const targets = selected.size > 0
+      ? companies.filter(c => selected.has(c.project_no))
+      : companies;
+    if (targets.length === 0) return;
+    if (!confirm(`${targets.length}개 기업을 발표평가 단계로 이동하시겠습니까?`)) return;
     setAdvancing(true);
     try {
-      for (const co of passedCos) await updateCompany(co.project_no, { stage: '발표' });
+      for (const co of targets) await updateCompany(co.project_no, { stage: '발표' });
+      setSelected(new Set());
       await loadData();
     } finally {
       setAdvancing(false);
