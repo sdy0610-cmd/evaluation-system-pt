@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion, getGradeSettings, saveGradeSettings, getTemplates, saveTemplate, deleteTemplate } from '../../services/api';
-import type { EvalCriterion, GradeSetting, EvalTemplate } from '../../types';
+import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion, getGradeSettings, saveGradeSettings, getTemplates, saveTemplate, deleteTemplate, getExtraOpinionFields, upsertExtraOpinionField, deleteExtraOpinionField } from '../../services/api';
+import type { EvalCriterion, GradeSetting, EvalTemplate, ExtraOpinionField } from '../../types';
 import { Plus, Edit2, Trash2, X, Check, Save, FolderOpen } from 'lucide-react';
 
 interface Props { year: number; }
 
-type PageTab = '평가항목' | '등급설정';
+type PageTab = '평가항목' | '등급설정' | '추가의견항목';
 type EvalTypeTab = '서류' | '발표';
 
 const EMPTY_FORM = {
@@ -45,6 +45,12 @@ export default function CriteriaManager({ year }: Props) {
   const [selectedCriteriaTpl, setSelectedCriteriaTpl] = useState('');
   const [selectedGradeTpl, setSelectedGradeTpl] = useState('');
   const [savingTpl, setSavingTpl] = useState(false);
+
+  // Extra opinion fields state
+  const [extraFields, setExtraFields] = useState<ExtraOpinionField[]>([]);
+  const [extraModal, setExtraModal] = useState<{ mode: 'add' | 'edit'; item?: ExtraOpinionField } | null>(null);
+  const [extraForm, setExtraForm] = useState({ recruit_type: '', field_label: '', sort_order: 0 });
+  const [extraSaving, setExtraSaving] = useState(false);
 
   async function loadGrades() {
     const data = await getGradeSettings(year);
@@ -138,6 +144,45 @@ export default function CriteriaManager({ year }: Props) {
     setSelectedGradeTpl('');
     const gt = await getTemplates('grades');
     setGradeTemplates(gt);
+  }
+
+  async function loadExtraFields() {
+    const data = await getExtraOpinionFields(year);
+    setExtraFields(data);
+  }
+
+  useEffect(() => { loadExtraFields(); }, [year]);
+
+  async function handleExtraSave() {
+    if (!extraForm.recruit_type.trim()) { alert('공고유형을 입력하세요.'); return; }
+    if (!extraForm.field_label.trim()) { alert('항목명을 입력하세요.'); return; }
+    setExtraSaving(true);
+    try {
+      const payload: ExtraOpinionField = {
+        year,
+        recruit_type: extraForm.recruit_type.trim(),
+        field_label: extraForm.field_label.trim(),
+        sort_order: extraForm.sort_order,
+      };
+      if (extraModal?.mode === 'edit' && extraModal.item?.id) payload.id = extraModal.item.id;
+      await upsertExtraOpinionField(payload);
+      setExtraModal(null);
+      await loadExtraFields();
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setExtraSaving(false);
+    }
+  }
+
+  async function handleExtraDelete(item: ExtraOpinionField) {
+    if (!confirm(`"${item.field_label}" 항목을 삭제하시겠습니까?`)) return;
+    try {
+      await deleteExtraOpinionField(item.id!);
+      await loadExtraFields();
+    } catch (e) {
+      alert((e as Error).message);
+    }
   }
 
   async function load() {
@@ -278,11 +323,17 @@ export default function CriteriaManager({ year }: Props) {
             <Plus size={15} />등급 추가
           </button>
         )}
+        {pageTab === '추가의견항목' && (
+          <button onClick={() => { setExtraForm({ recruit_type: '', field_label: '', sort_order: extraFields.length }); setExtraModal({ mode: 'add' }); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            <Plus size={15} />항목 추가
+          </button>
+        )}
       </div>
 
       {/* Page tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
-        {(['평가항목', '등급설정'] as PageTab[]).map(t => (
+        {(['평가항목', '등급설정', '추가의견항목'] as PageTab[]).map(t => (
           <button key={t} onClick={() => setPageTab(t)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${pageTab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
             {t}
@@ -489,6 +540,52 @@ export default function CriteriaManager({ year }: Props) {
 
       </>}
 
+      {/* ── Extra Opinion Fields Panel ──────────────────────────────────── */}
+      {pageTab === '추가의견항목' && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+            특정 공고유형으로 지원한 기업 평가 시, 기본 평가의견 외에 추가로 수집할 의견 항목을 설정합니다. 인쇄 시 기본 평가의견과 구분되어 표시됩니다.
+          </div>
+          {extraFields.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400 text-sm">
+              등록된 추가의견 항목이 없습니다.
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {['공고유형', '항목명', '순서', ''].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {[...extraFields].sort((a, b) => a.sort_order - b.sort_order).map(f => (
+                    <tr key={f.id} className="hover:bg-gray-50">
+                      <td className="px-5 py-3">
+                        <span className="inline-block px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                          {f.recruit_type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-gray-800 font-medium">{f.field_label}</td>
+                      <td className="px-5 py-3 text-gray-500">{f.sort_order}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => { setExtraForm({ recruit_type: f.recruit_type, field_label: f.field_label, sort_order: f.sort_order }); setExtraModal({ mode: 'edit', item: f }); }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors"><Edit2 size={13} /></button>
+                          <button onClick={() => handleExtraDelete(f)} className="p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors"><Trash2 size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {modal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
@@ -613,6 +710,42 @@ export default function CriteriaManager({ year }: Props) {
               <button onClick={() => setGradeModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
               <button onClick={handleGradeSave} disabled={gradeSaving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {gradeSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {extraModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <h3 className="font-bold text-lg text-gray-900">{extraModal.mode === 'add' ? '추가의견 항목 추가' : '추가의견 항목 수정'}</h3>
+              <button onClick={() => setExtraModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">공고유형 *</label>
+                <input value={extraForm.recruit_type} onChange={e => setExtraForm(f => ({ ...f, recruit_type: e.target.value }))}
+                  placeholder="예: ICT, 일반, 소셜벤처"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-400 mt-1">기업의 모집공고유형과 일치하면 평가 시 표시됩니다.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">항목명 *</label>
+                <input value={extraForm.field_label} onChange={e => setExtraForm(f => ({ ...f, field_label: e.target.value }))}
+                  placeholder="예: ICT 기술 특이사항, 사회적 가치 의견"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">표시 순서</label>
+                <input type="number" min="0" value={extraForm.sort_order} onChange={e => setExtraForm(f => ({ ...f, sort_order: +e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setExtraModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={handleExtraSave} disabled={extraSaving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {extraSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
