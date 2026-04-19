@@ -9,7 +9,7 @@ import * as XLSX from 'xlsx';
 interface Props { year: number; }
 
 const EMPTY_FORM = {
-  id: '', name: '', password: '', division_id: '', evaluator_order: '', email: '', phone: ''
+  id: '', name: '', password: '', division_id: '', evaluator_order: '', email: '', phone: '', organization: '', position: ''
 };
 
 export default function EvaluatorsManager({ year }: Props) {
@@ -48,6 +48,8 @@ export default function EvaluatorsManager({ year }: Props) {
       evaluator_order: String(ev.evaluator_order || ''),
       email: ev.email || '',
       phone: ev.phone || '',
+      organization: ev.organization || '',
+      position: ev.position || '',
     });
     setError('');
     setModal({ mode: 'edit', ev });
@@ -74,6 +76,8 @@ export default function EvaluatorsManager({ year }: Props) {
         evaluator_order: form.evaluator_order ? Number(form.evaluator_order) : null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
+        organization: form.organization.trim() || null,
+        position: form.position.trim() || null,
       };
       if (form.password.trim()) payload.password = form.password.trim();
       await upsertEvaluator(payload);
@@ -111,8 +115,9 @@ export default function EvaluatorsManager({ year }: Props) {
       const headers = rows[0].map((h: any) => String(h ?? '').trim());
       const COL: Record<string, string> = {
         '아이디': 'id', '이름': 'name', '비밀번호': 'password',
-        '분과': 'division_label', '위원순서': 'evaluator_order',
+        '분과': 'division_label', '분과라벨': 'division_label', '위원순서': 'evaluator_order',
         '이메일': 'email', '연락처': 'phone',
+        '소속': 'organization', '직위': 'position',
       };
 
       const divLabelMap: Record<string, string> = {};
@@ -200,7 +205,7 @@ export default function EvaluatorsManager({ year }: Props) {
 
       {/* Excel format hint */}
       <div className="mb-6 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500">
-        <span className="font-medium">Excel 열 순서:</span> 아이디 | 이름 | 비밀번호 | 분과 | 위원순서(1~5) | 이메일 | 연락처
+        <span className="font-medium">Excel 열 순서:</span> 아이디 | 이름 | 비밀번호 | 분과라벨 | 분과명 | 위원순서(1~7) | 소속 | 직위 | 이메일 | 연락처
       </div>
 
       {/* Grouped table */}
@@ -320,6 +325,26 @@ export default function EvaluatorsManager({ year }: Props) {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">소속</label>
+                  <input
+                    value={form.organization}
+                    onChange={e => setForm(f => ({ ...f, organization: e.target.value }))}
+                    placeholder="소속 기관/회사"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">직위</label>
+                  <input
+                    value={form.position}
+                    onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
+                    placeholder="대표, 팀장, 교수 등"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
               {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{error}</div>}
             </div>
             <div className="flex gap-3 px-6 pb-6">
@@ -351,7 +376,7 @@ function EvaluatorTable({
     <table className="w-full text-sm">
       <thead>
         <tr className="bg-gray-50 border-b border-gray-100">
-          {['순서', '아이디', '이름', '이메일', '연락처', ''].map(h => (
+          {['순서', '아이디', '이름 / 소속', '이메일', '연락처', ''].map(h => (
             <th key={h} className="px-5 py-2.5 text-left text-xs font-medium text-gray-500">{h}</th>
           ))}
         </tr>
@@ -365,7 +390,14 @@ function EvaluatorTable({
               </span>
             </td>
             <td className="px-5 py-3 font-mono text-xs text-gray-500">{ev.id}</td>
-            <td className="px-5 py-3 font-medium text-gray-900">{ev.name}</td>
+            <td className="px-5 py-3">
+              <div className="font-medium text-gray-900">{ev.name}</div>
+              {(ev.organization || ev.position) && (
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {[ev.organization, ev.position].filter(Boolean).join(' · ')}
+                </div>
+              )}
+            </td>
             <td className="px-5 py-3 text-gray-500">{ev.email || '-'}</td>
             <td className="px-5 py-3 text-gray-500">{ev.phone || '-'}</td>
             <td className="px-5 py-3">

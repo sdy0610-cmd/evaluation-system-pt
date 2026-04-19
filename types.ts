@@ -24,6 +24,8 @@ export interface Evaluator {
   evaluator_order?: number;   // 1~5
   email?: string;
   phone?: string;
+  organization?: string;
+  position?: string;
 }
 
 export interface Company {

@@ -161,7 +161,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   </table>
   <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
   <div class="confirm-date">${user.year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
-  <div class="sig-line">소속: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
+  <div class="sig-line">소속: ${user.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${user.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">주관기관장 귀하</div>
 </div>`;
     }).join('\n');
@@ -235,7 +235,8 @@ ${selected.recruit_type === '대학발' ? `
 </tbody></table>
 <div class="sig">
   <p>위 평가 결과가 사실임을 확인합니다.</p>
-  <p>평가일: ${user.year}년 &nbsp;&nbsp; 월 &nbsp;&nbsp; 일 &nbsp;&nbsp;&nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (서명)</p>
+  <p>평가일: ${user.year}년 &nbsp;&nbsp; 월 &nbsp;&nbsp; 일</p>
+  <p>소속: ${user.organization || ''} &nbsp;&nbsp; 직위: ${user.position || ''} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (서명)</p>
 </div></body></html>`);
     win.document.close();
   }
