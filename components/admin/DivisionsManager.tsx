@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { getDivisions, upsertDivision, deleteDivision, getEvaluators } from '../../services/api';
 import type { Division, Evaluator } from '../../types';
-import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, Download } from 'lucide-react';
 
 interface Props { year: number; }
 
@@ -15,6 +16,8 @@ export default function DivisionsManager({ year }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -63,6 +66,50 @@ export default function DivisionsManager({ year }: Props) {
     }
   }
 
+  function handleDownloadTemplate() {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['분과라벨', '분과명', '위원장'],
+      ['A', '정보·통신', '홍길동'],
+      ['B', '기계·소재 / 에너지·자원', ''],
+    ]);
+    ws['!cols'] = [{ wch: 14 }, { wch: 30 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '분과목록');
+    XLSX.writeFile(wb, `분과목록_템플릿_${year}.xlsx`);
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setUploading(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+      if (rows.length === 0) { alert('데이터가 없습니다.'); return; }
+
+      const parsed = rows.map((r, i) => {
+        const label = String(r['분과라벨'] || r['분과 라벨'] || '').trim();
+        const name = String(r['분과명'] || r['분과 명'] || '').trim();
+        const chair = String(r['위원장'] || '').trim();
+        if (!name) throw new Error(`${i + 2}행: 분과명이 없습니다.`);
+        return { year, division_label: label, division_name: name, chair_name: chair || null };
+      });
+
+      for (const d of parsed) {
+        await upsertDivision(d as any);
+      }
+      await load();
+      alert(`${parsed.length}개 분과가 등록되었습니다.`);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleDelete(div: Division) {
     if (!confirm(`"${div.division_name}" 분과를 삭제하시겠습니까?`)) return;
     try {
@@ -82,12 +129,21 @@ export default function DivisionsManager({ year }: Props) {
           <h1 className="text-xl font-bold text-gray-900">분과 관리</h1>
           <p className="text-sm text-gray-500 mt-0.5">{year}년도 분과 구성</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={15} />분과 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleUpload} className="hidden" />
+          <button onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+            <Download size={15} />템플릿
+          </button>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2 border border-green-600 text-green-700 rounded-lg text-sm font-medium hover:bg-green-50 transition-colors disabled:opacity-50">
+            <Upload size={15} />{uploading ? '업로드 중...' : '엑셀 업로드'}
+          </button>
+          <button onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+            <Plus size={15} />분과 추가
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
