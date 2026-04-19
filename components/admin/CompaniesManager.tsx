@@ -157,7 +157,7 @@ export default function CompaniesManager({ year }: Props) {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">전체 분과</option>
-          {divisions.map(d => <option key={d.id} value={d.id}>{d.division_label}</option>)}
+          {divisions.map(d => <option key={d.id} value={d.id}>{d.division_name}</option>)}
           <option value="none">미배정</option>
         </select>
         <select
@@ -206,7 +206,7 @@ export default function CompaniesManager({ year }: Props) {
                     <td className="px-4 py-3 text-gray-500 text-xs">{co.tech_field}</td>
                     <td className="px-4 py-3">
                       {co.division ? (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{co.division.division_label}</span>
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{co.division.division_name}</span>
                       ) : (
                         <span className="text-gray-400 text-xs">미배정</span>
                       )}
