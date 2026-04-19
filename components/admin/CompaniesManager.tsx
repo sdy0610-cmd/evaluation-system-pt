@@ -122,10 +122,14 @@ export default function CompaniesManager({ year }: Props) {
   }
 
   function handleTemplateDownload() {
-    const headers = ['과제번호', '과제명', '지원유형(모집공고)', '창업아이템명', '업력', '청/중장년', '성별', '매출액', '사원수(고용)', '전문기술분야', '대표자명', '이메일', '연락처', '비고'];
-    const example = ['C2026-001', '(예시) AI 기반 재고관리', '지역기반', 'AI 재고관리 SaaS', '1', '청년', '남', '0', '2', '정보·통신', '홍길동', 'hong@example.com', '010-0000-0000', ''];
+    const divHint = divisions.length > 0
+      ? divisions.map(d => `${d.division_name}`).join(' / ')
+      : '예: 정보·통신 1';
+    const headers = ['과제번호', '과제명', '지원유형(모집공고)', '창업아이템명', '업력', '청/중장년', '성별', '매출액', '사원수(고용)', '전문기술분야', '분과', '대표자명', '이메일', '연락처', '비고'];
+    const example = ['C2026-001', '(예시) AI 기반 재고관리', '지역기반', 'AI 재고관리 SaaS', '1', '청년', '남', '0', '2', '정보·통신', divisions[0]?.division_name || '정보·통신 1', '홍길동', 'hong@example.com', '010-0000-0000', ''];
+    const note = ['', '', '', '', '', '', '', '', '', '', `※ 분과명 목록: ${divHint}`, '', '', '', ''];
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, example, note]);
     ws['!cols'] = headers.map(() => ({ wch: 18 }));
     XLSX.utils.book_append_sheet(wb, ws, '대상');
     XLSX.writeFile(wb, `평가대상자_업로드양식_${year}.xlsx`);
@@ -137,12 +141,7 @@ export default function CompaniesManager({ year }: Props) {
     setImporting(true);
     setImportMsg('파싱 중...');
     try {
-      const { parsed, errors } = await parseCompanyExcel(file, year);
-
-      // Auto-assign division by tech_field
-      const divMap: Record<string, string> = {};
-      // build a field→division_id map from existing companies or manual mapping
-      // For now, we'll rely on the division_id in the Excel or leave unassigned
+      const { parsed, errors } = await parseCompanyExcel(file, year, divisions);
 
       await bulkUpsertCompanies(parsed);
       setImportMsg(`${parsed.length}개 기업 등록 완료${errors.length > 0 ? ` (오류: ${errors.slice(0, 3).join(', ')})` : ''}`);

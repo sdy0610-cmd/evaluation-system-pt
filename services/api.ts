@@ -494,12 +494,27 @@ const COL_MAP: Record<string, string> = {
   '사원수': 'employees',
   '요건검토': 'requirement_check',
   '비고': 'notes',
+  '분과': '_div_raw',
+  '분과명': '_div_raw',
+  '분과라벨': '_div_label_raw',
 };
 const NUM_FIELDS = new Set(['revenue', 'employees', 'revenue_target', 'employment_target', 'investment_target']);
 
+// Helper: find division_id by name or label (case-insensitive, partial match)
+function resolveDivisionId(raw: string, divisions: Division[]): string | null {
+  const q = raw.trim().toLowerCase();
+  return (
+    divisions.find(d => d.division_name.toLowerCase() === q)?.id ||
+    divisions.find(d => d.division_label.toLowerCase() === q)?.id ||
+    divisions.find(d => d.division_name.toLowerCase().includes(q) || q.includes(d.division_name.toLowerCase()))?.id ||
+    null
+  );
+}
+
 export async function parseCompanyExcel(
   file: File,
-  year: number
+  year: number,
+  divisions: Division[] = []
 ): Promise<{ parsed: Partial<Company>[]; errors: string[] }> {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -527,7 +542,7 @@ export async function parseCompanyExcel(
           const row = rows[i] as unknown[];
           if (!row || (row as unknown[]).every(c => c === null || c === undefined || c === '')) continue;
 
-          const co: Partial<Company> = { year };
+          const co: Partial<Company> & { _div_raw?: string; _div_label_raw?: string } = { year };
           let projectNo = '';
 
           headers.forEach((header, j) => {
@@ -546,6 +561,17 @@ export async function parseCompanyExcel(
               if (s && s !== '-' && s.toLowerCase() !== 'none') (co as Record<string, unknown>)[field] = s;
             }
           });
+
+          // Resolve division_id from raw name/label columns
+          if (divisions.length > 0) {
+            const rawName = co._div_raw;
+            const rawLabel = co._div_label_raw;
+            const divId = (rawName && resolveDivisionId(rawName, divisions)) ||
+                          (rawLabel && resolveDivisionId(rawLabel, divisions)) || null;
+            if (divId) co.division_id = divId;
+          }
+          delete co._div_raw;
+          delete co._div_label_raw;
 
           if (!projectNo) {
             projectNo = `AUTO-${year}-${String(parsed.length + 1).padStart(4, '0')}`;

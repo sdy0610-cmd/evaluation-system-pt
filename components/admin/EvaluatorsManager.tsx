@@ -101,11 +101,15 @@ export default function EvaluatorsManager({ year }: Props) {
   }
 
   function handleTemplateDownload() {
-    const headers = ['아이디', '이름', '비밀번호', '분과라벨', '분과명', '위원순서', '소속', '직위', '이메일', '연락처'];
-    const example = ['eval_IT_1_1', '홍길동', '1234', 'IT-1', '정보·통신 1', '1', '(주)예시회사', '대표', 'example@email.com', '010-0000-0000'];
+    const headers = ['아이디', '이름', '비밀번호', '분과명', '위원순서', '소속', '직위', '이메일', '연락처'];
+    const example = ['eval_IT_1_1', '홍길동', '1234', divisions[0]?.division_name || '정보·통신 1', '1', '(주)예시회사', '대표', 'example@email.com', '010-0000-0000'];
+    const divHint = divisions.length > 0
+      ? `※ 분과명 목록: ${divisions.map(d => d.division_name).join(' / ')}`
+      : '※ 분과명: 관리자에서 등록된 분과명을 정확히 입력하세요';
+    const note = ['', '', '', divHint, '', '', '', '', ''];
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-    ws['!cols'] = headers.map(() => ({ wch: 18 }));
+    const ws = XLSX.utils.aoa_to_sheet([headers, example, note]);
+    ws['!cols'] = headers.map(() => ({ wch: 20 }));
     XLSX.utils.book_append_sheet(wb, ws, '평가위원');
     XLSX.writeFile(wb, `평가위원_업로드양식.xlsx`);
   }
@@ -125,13 +129,18 @@ export default function EvaluatorsManager({ year }: Props) {
       const headers = rows[0].map((h: any) => String(h ?? '').trim());
       const COL: Record<string, string> = {
         '아이디': 'id', '이름': 'name', '비밀번호': 'password',
-        '분과': 'division_label', '분과라벨': 'division_label', '위원순서': 'evaluator_order',
+        '분과': 'division_label', '분과라벨': 'division_label', '분과명': 'division_label',
+        '위원순서': 'evaluator_order',
         '이메일': 'email', '연락처': 'phone',
         '소속': 'organization', '직위': 'position',
       };
 
       const divLabelMap: Record<string, string> = {};
-      divisions.forEach(d => { divLabelMap[d.division_label] = d.id; });
+      const divNameMap: Record<string, string> = {};
+      divisions.forEach(d => {
+        divLabelMap[d.division_label.toLowerCase()] = d.id;
+        divNameMap[d.division_name.toLowerCase()] = d.id;
+      });
 
       let count = 0;
       const errors: string[] = [];
@@ -147,7 +156,9 @@ export default function EvaluatorsManager({ year }: Props) {
         });
         if (!obj.id || !obj.name) { errors.push(`Row ${i + 1}: 아이디/이름 없음`); continue; }
         if (obj.division_label) {
-          obj.division_id = divLabelMap[obj.division_label] || null;
+          const q = obj.division_label.trim().toLowerCase();
+          obj.division_id = divLabelMap[q] || divNameMap[q] ||
+            divisions.find(d => d.division_name.toLowerCase().includes(q) || q.includes(d.division_name.toLowerCase()))?.id || null;
           delete obj.division_label;
         }
         if (obj.evaluator_order) obj.evaluator_order = Number(obj.evaluator_order);
