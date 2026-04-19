@@ -149,6 +149,14 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       const sc = ev ? (ev.adjusted_score ?? ev.score ?? 0) : 0;
       const sections = evalType === '서류' ? docSections : presSections;
 
+      const xfEntries = ev?.extra_opinions ? Object.entries(ev.extra_opinions as Record<string, string>) : [];
+      const extraOpinionRows = xfEntries.length > 0
+        ? xfEntries.map(([label, val]) =>
+            '<tr><th style="background:#f3e8ff;color:#6b21a8;font-size:10.5px">' + label + '</th></tr>' +
+            '<tr><td class="opinion-area" style="min-height:50px;height:50px">' + val + '</td></tr>'
+          ).join('')
+        : '';
+
       const scoreRows = sections.length > 0
         ? sections.flatMap(sec =>
             sec.items.map((item, ii) => {
@@ -182,13 +190,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     <tr><th>평 가 의 견</th></tr>
     <tr><td class="opinion-area">${ev?.comment || ''}</td></tr>
     ${co.recruit_type === '대학발' ? `<tr><td style="padding:4px 8px;font-size:10px;color:#555">※ 지역주력산업 일치 여부: ${ev?.region_match === true ? '일치' : ev?.region_match === false ? '불일치' : '　　'} &nbsp;&nbsp; 의견: ${ev?.region_match_comment || ''}</td></tr>` : ''}
-    ${(() => {
-      const xf = ev?.extra_opinions;
-      if (!xf || Object.keys(xf).length === 0) return '';
-      return Object.entries(xf).map(([label, val]) =>
-        `<tr><th style="background:#f3e8ff;color:#6b21a8;font-size:10.5px">${label}</th></tr><tr><td class="opinion-area" style="min-height:50px;height:50px">${val}</td></tr>`
-      ).join('');
-    })()}
+    ${extraOpinionRows}
   </table>
   <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
   <div class="confirm-date">${user.year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
@@ -245,6 +247,14 @@ ${pages}</body></html>`);
     const win = window.open('', '_blank');
     if (!win) return;
     const activeSections = selectedEvalType === '서류' ? docSections : presSections;
+    const xfPrint = selectedEv.extra_opinions ? Object.entries(selectedEv.extra_opinions as Record<string, string>) : [];
+    const extraOpHtml = xfPrint.length > 0
+      ? xfPrint.map(([label, val]) =>
+          '<tr><th style="background:#f3e8ff;color:#6b21a8">' + label + '</th></tr>' +
+          '<tr><td style="min-height:40px;padding:8px">' + val + '</td></tr>'
+        ).join('')
+      : '';
+
     const subsHtml = ss && activeSections.length > 0 ? activeSections.map(sec => `
       <tr><td colspan="3" style="background:#f5f5f5;font-weight:bold;padding:4px 8px">${sec.section}. ${sec.name} (${sec.total}점)</td></tr>
       ${sec.items.map(it => `<tr><td style="padding:3px 8px;padding-left:20px">${it.key}. ${it.name}</td><td style="text-align:center">${it.max}점</td><td style="text-align:center">${ss[it.key] ?? 0}점</td></tr>`).join('')}
@@ -276,11 +286,7 @@ ${selected.recruit_type === '대학발' ? `
 <tr><td>${selectedEv.region_match === true ? '✅ 일치' : selectedEv.region_match === false ? '❌ 불일치' : '-'}</td></tr>
 <tr><th>지역주력산업 관련 의견</th></tr>
 <tr><td style="min-height:40px;padding:8px">${selectedEv.region_match_comment || ''}</td></tr>` : ''}
-${selectedEv.extra_opinions && Object.keys(selectedEv.extra_opinions).length > 0
-  ? Object.entries(selectedEv.extra_opinions).map(([label, val]) =>
-      `<tr><th style="background:#f3e8ff;color:#6b21a8">${label}</th></tr><tr><td style="min-height:40px;padding:8px">${val}</td></tr>`
-    ).join('')
-  : ''}
+${extraOpHtml}
 </tbody></table>
 <div class="sig">
   <p>위 평가 결과가 사실임을 확인합니다.</p>
