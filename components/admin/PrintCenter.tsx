@@ -307,32 +307,18 @@ ${pages.join('\n')}
                   <span className="w-20 text-sm text-gray-700 shrink-0 truncate">{co.representative}</span>
                   <span className="flex-1 text-sm text-gray-900 min-w-0 truncate">{co.project_title}</span>
                   {/* Evaluator selector */}
-                  <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end max-w-xs">
-                    <button
-                      onClick={() => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: '' }))}
-                      className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
-                        selEvalId === ''
-                          ? 'bg-slate-700 text-white border-slate-700'
-                          : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      전체
-                    </button>
+                  <select
+                    value={selEvalId}
+                    onChange={e => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: e.target.value }))}
+                    className="shrink-0 w-40 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">전체 ({evaluators.length}명)</option>
                     {evaluators.map(ev => (
-                      <button
-                        key={ev.id}
-                        onClick={() => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: ev.id }))}
-                        title={`위원${ev.evaluator_order} ${ev.name}`}
-                        className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
-                          selEvalId === ev.id
-                            ? 'bg-slate-700 text-white border-slate-700'
-                            : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
-                        }`}
-                      >
-                        {ev.evaluator_order}
-                      </button>
+                      <option key={ev.id} value={ev.id}>
+                        위원{ev.evaluator_order} {ev.name}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                   <button
                     onClick={() => printCompany(co)}
                     disabled={evaluators.length === 0}
