@@ -466,7 +466,7 @@ ${selected.recruit_type === '대학발' ? `
                 )}
               </div>
               {pdfUrl ? (
-                <iframe src={pdfUrl} className="flex-1 w-full" title="사업계획서" />
+                <iframe src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`} className="flex-1 w-full" title="사업계획서" />
               ) : (
                 <div className="flex-1 flex items-center justify-center text-gray-400">
                   <div className="text-center">

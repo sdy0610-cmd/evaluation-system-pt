@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, ExternalLink, FileText } from 'lucide-react';
+import { X, Trash2, FileText } from 'lucide-react';
 import type { Company, CompanyFile } from '../../types';
 import { getCompanyFiles, deleteCompanyFile, getFileUrl } from '../../services/api';
 
@@ -92,14 +92,14 @@ export default function CompanyFilesModal({ company, year, onClose, onChanged }:
           <div className="flex-1 flex flex-col bg-gray-100">
             {preview && activeUrl ? (
               <>
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-800 text-xs text-gray-300 shrink-0">
-                  <span className="truncate">{preview.file_name}</span>
-                  <a href={activeUrl} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-blue-300 hover:text-blue-200 shrink-0 ml-3">
-                    <ExternalLink size={12} />새 탭
-                  </a>
+                <div className="px-4 py-2 bg-gray-800 text-xs text-gray-300 shrink-0 truncate">
+                  {preview.file_name}
                 </div>
-                <iframe src={activeUrl} className="flex-1 w-full" title={preview.file_name} />
+                <iframe
+                  src={`${activeUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                  className="flex-1 w-full"
+                  title={preview.file_name}
+                />
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center text-gray-400">
