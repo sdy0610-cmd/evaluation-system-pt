@@ -49,6 +49,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [allEvals, setAllEvals] = useState<Evaluation[]>([]);
   const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const [showModalStats, setShowModalStats] = useState(false);
 
   // Evaluation form state
   const [score, setScore] = useState('');
@@ -433,15 +434,15 @@ ${selected.recruit_type === '대학발' ? `
               <div className="flex flex-col bg-gray-900">
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="text-white text-sm font-medium">
-                    {selected.project_no} — {selected.representative}
+                    {selected.project_no}
                   </div>
                   <div className="flex items-center gap-2">
-                    {pdfUrl && (
-                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200">
-                        <ExternalLink size={13} />새 탭에서 열기
-                      </a>
-                    )}
+                    <button
+                      onClick={() => setShowModalStats(s => !s)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors border ${showModalStats ? 'bg-blue-600 text-white border-blue-500' : 'text-gray-300 border-gray-600 hover:bg-gray-700'}`}
+                    >
+                      <BarChart2 size={13} />등급 현황
+                    </button>
                     <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-white p-1">
                       <X size={18} />
                     </button>
@@ -465,6 +466,23 @@ ${selected.recruit_type === '대학발' ? `
                   </div>
                 )}
               </div>
+              {showModalStats && (
+                <div className="bg-white border-b border-gray-200 overflow-y-auto max-h-72 p-3">
+                  {(() => {
+                    const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+                    const finalScores: Record<string, number> = {};
+                    companies.forEach(co => {
+                      const scores = divEvs.map(ev => {
+                        const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id);
+                        return e ? (e.adjusted_score ?? e.score ?? null) : null;
+                      });
+                      const avg = calculateAvgScore(scores);
+                      if (avg > 0) finalScores[co.project_no] = avg;
+                    });
+                    return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
+                  })()}
+                </div>
+              )}
               {pdfUrl ? (
                 <iframe src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`} className="flex-1 w-full" title="사업계획서" />
               ) : (
