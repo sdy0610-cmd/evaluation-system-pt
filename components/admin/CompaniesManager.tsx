@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  getCompanies, getDivisions, updateCompany, bulkUpsertCompanies,
+  getCompanies, getDivisions, updateCompany, upsertCompany, bulkUpsertCompanies,
   parseCompanyExcel, getBonusPointsBulk, upsertBonusPoint
 } from '../../services/api';
 import type { Company, Division, BonusPoint } from '../../types';
-import { Upload, Download, Edit2, X, Search, Filter, Star, AlertTriangle, FileCheck } from 'lucide-react';
+import { Upload, Download, Edit2, X, Search, Plus, Star, AlertTriangle, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Props { year: number; }
@@ -23,6 +23,10 @@ export default function CompaniesManager({ year }: Props) {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [addModal, setAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ project_no: '', project_title: '', representative: '', division_id: '', tech_field: '', recruit_type: '', stage: '서류' as const });
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -71,6 +75,34 @@ export default function CompaniesManager({ year }: Props) {
       alert((e as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddSave() {
+    if (!addForm.project_no.trim() || !addForm.project_title.trim() || !addForm.representative.trim()) {
+      setAddError('과제번호, 과제명, 대표자명은 필수입니다.');
+      return;
+    }
+    setAddSaving(true);
+    setAddError('');
+    try {
+      await upsertCompany({
+        project_no: addForm.project_no.trim(),
+        project_title: addForm.project_title.trim(),
+        representative: addForm.representative.trim(),
+        division_id: addForm.division_id || undefined,
+        tech_field: addForm.tech_field.trim() || '',
+        recruit_type: addForm.recruit_type.trim() || undefined,
+        stage: addForm.stage,
+        year,
+      });
+      setAddModal(false);
+      setAddForm({ project_no: '', project_title: '', representative: '', division_id: '', tech_field: '', recruit_type: '', stage: '서류' });
+      await load();
+    } catch (e) {
+      setAddError((e as Error).message);
+    } finally {
+      setAddSaving(false);
     }
   }
 
@@ -133,23 +165,27 @@ export default function CompaniesManager({ year }: Props) {
           <h1 className="text-xl font-bold text-gray-900">기업 관리</h1>
           <p className="text-sm text-gray-500 mt-0.5">총 {companies.length}개 기업 등록</p>
         </div>
-        <div>
+        <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
-          <div className="flex gap-2">
-            <button
-              onClick={handleTemplateDownload}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-            >
-              <Download size={15} />양식 다운로드
-            </button>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={importing}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-            >
-              <Upload size={15} />{importing ? '가져오는 중...' : 'Excel 가져오기'}
-            </button>
-          </div>
+          <button
+            onClick={handleTemplateDownload}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <Download size={15} />양식 다운로드
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Upload size={15} />{importing ? '등록 중...' : 'Excel 일괄 등록'}
+          </button>
+          <button
+            onClick={() => { setAddForm({ project_no: '', project_title: '', representative: '', division_id: '', tech_field: '', recruit_type: '', stage: '서류' }); setAddError(''); setAddModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={15} />기업 추가
+          </button>
         </div>
       </div>
 
@@ -437,6 +473,105 @@ export default function CompaniesManager({ year }: Props) {
               <button onClick={() => setModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
               <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add company modal */}
+      {addModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <h3 className="font-bold text-lg">기업 추가</h3>
+              <button onClick={() => setAddModal(false)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">과제번호 *</label>
+                  <input
+                    value={addForm.project_no}
+                    onChange={e => setAddForm(f => ({ ...f, project_no: e.target.value }))}
+                    placeholder="예: 20410001"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">대표자명 *</label>
+                  <input
+                    value={addForm.representative}
+                    onChange={e => setAddForm(f => ({ ...f, representative: e.target.value }))}
+                    placeholder="홍길동"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">과제명 *</label>
+                <input
+                  value={addForm.project_title}
+                  onChange={e => setAddForm(f => ({ ...f, project_title: e.target.value }))}
+                  placeholder="아이템명 또는 과제명"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">분과</label>
+                  <select
+                    value={addForm.division_id}
+                    onChange={e => setAddForm(f => ({ ...f, division_id: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">분과 없음</option>
+                    {divisions.map(d => <option key={d.id} value={d.id}>{d.division_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">지원유형</label>
+                  <select
+                    value={addForm.recruit_type}
+                    onChange={e => setAddForm(f => ({ ...f, recruit_type: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">선택</option>
+                    <option>지역기반</option>
+                    <option>대학발</option>
+                    <option>실험실창업</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">전문기술분야</label>
+                  <input
+                    value={addForm.tech_field}
+                    onChange={e => setAddForm(f => ({ ...f, tech_field: e.target.value }))}
+                    placeholder="정보·통신"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">평가 단계</label>
+                  <select
+                    value={addForm.stage}
+                    onChange={e => setAddForm(f => ({ ...f, stage: e.target.value as '서류' | '발표' | '완료' }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="서류">서류</option>
+                    <option value="발표">발표</option>
+                    <option value="완료">완료</option>
+                  </select>
+                </div>
+              </div>
+              {addError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{addError}</div>}
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setAddModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={handleAddSave} disabled={addSaving} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {addSaving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

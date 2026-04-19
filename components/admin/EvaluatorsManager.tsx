@@ -3,7 +3,7 @@ import {
   getEvaluators, getDivisions, upsertEvaluator, deleteEvaluator
 } from '../../services/api';
 import type { Evaluator, Division } from '../../types';
-import { Plus, Edit2, Trash2, X, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Props { year: number; }
@@ -100,6 +100,16 @@ export default function EvaluatorsManager({ year }: Props) {
     }
   }
 
+  function handleTemplateDownload() {
+    const headers = ['아이디', '이름', '비밀번호', '분과라벨', '분과명', '위원순서', '소속', '직위', '이메일', '연락처'];
+    const example = ['eval_IT_1_1', '홍길동', '1234', 'IT-1', '정보·통신 1', '1', '(주)예시회사', '대표', 'example@email.com', '010-0000-0000'];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    ws['!cols'] = headers.map(() => ({ wch: 18 }));
+    XLSX.utils.book_append_sheet(wb, ws, '평가위원');
+    XLSX.writeFile(wb, `평가위원_업로드양식.xlsx`);
+  }
+
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -179,15 +189,19 @@ export default function EvaluatorsManager({ year }: Props) {
           <p className="text-sm text-gray-500 mt-0.5">{year}년도 평가위원 {evaluators.length}명</p>
         </div>
         <div className="flex gap-2">
-          <div>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-            >
-              <Upload size={15} />Excel 일괄 등록
-            </button>
-          </div>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="hidden" />
+          <button
+            onClick={handleTemplateDownload}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <Download size={15} />양식 다운로드
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Upload size={15} />Excel 일괄 등록
+          </button>
           <button
             onClick={openAdd}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
