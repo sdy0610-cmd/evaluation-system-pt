@@ -319,52 +319,48 @@ export default function CompaniesManager({ year }: Props) {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setFilesModal(co)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
                           companyFileCounts[co.project_no]
-                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                            ? 'border-slate-400 text-slate-700 hover:bg-slate-50'
+                            : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
                         }`}
                       >
-                        <FileText size={11} />
-                        {companyFileCounts[co.project_no] || 0}
+                        <FileText size={12} />
+                        {companyFileCounts[co.project_no]
+                          ? `${companyFileCounts[co.project_no]}개`
+                          : '없음'}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
-                      {co.recruit_type ? (
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium whitespace-nowrap">{co.recruit_type}</span>
-                      ) : <span className="text-gray-300 text-xs">-</span>}
+                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                      {co.recruit_type || <span className="text-gray-300">-</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
                       {co.age_group ? (
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
-                          co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                        }`}>{co.age_group}</span>
-                      ) : <span className="text-gray-300 text-xs">-</span>}
+                        <span className={co.age_group === '청년' ? 'text-blue-600 font-medium' : 'text-orange-600 font-medium'}>
+                          {co.age_group}
+                        </span>
+                      ) : <span className="text-gray-300">-</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-48 truncate" title={co.project_title}>{co.project_title}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{co.tech_field}</td>
-                    <td className="px-4 py-3">
-                      {co.division ? (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{co.division.division_name}</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">미배정</span>
-                      )}
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {co.division ? co.division.division_name : <span className="text-gray-300">미배정</span>}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        co.stage === '서류' ? 'bg-gray-100 text-gray-600' :
-                        co.stage === '발표' ? 'bg-amber-100 text-amber-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>{co.stage}</span>
+                    <td className="px-4 py-3 text-xs">
+                      <span className={
+                        co.stage === '서류' ? 'text-gray-500' :
+                        co.stage === '발표' ? 'text-amber-600 font-medium' :
+                        'text-green-600 font-medium'
+                      }>{co.stage}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-xs">
                       {co.result ? (
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          co.result === '통과' ? 'bg-green-100 text-green-700' :
-                          co.result === '예비' ? 'bg-orange-100 text-orange-700' :
-                          'bg-red-100 text-red-600'
-                        }`}>{co.result}</span>
-                      ) : '-'}
+                        <span className={
+                          co.result === '통과' ? 'text-green-600 font-medium' :
+                          co.result === '예비' ? 'text-orange-500 font-medium' :
+                          'text-red-500 font-medium'
+                        }>{co.result}</span>
+                      ) : <span className="text-gray-300">-</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
