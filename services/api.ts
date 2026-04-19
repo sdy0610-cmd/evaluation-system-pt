@@ -424,6 +424,28 @@ export async function bulkAddCompanyFiles(entries: Omit<import('../types').Compa
   if (error) throw error;
 }
 
+// ── Eval Templates ───────────────────────────────────────────────────────────
+export async function getTemplates(type: string): Promise<import('../types').EvalTemplate[]> {
+  const { data, error } = await supabase
+    .from('startup_eval_templates')
+    .select('*')
+    .eq('type', type)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveTemplate(t: Omit<import('../types').EvalTemplate, 'id' | 'created_at'>): Promise<import('../types').EvalTemplate> {
+  const { data, error } = await supabase.from('startup_eval_templates').insert(t).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+  const { error } = await supabase.from('startup_eval_templates').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── Grade Settings ───────────────────────────────────────────────────────────
 export async function getGradeSettings(year: number): Promise<import('../types').GradeSetting[]> {
   const { data, error } = await supabase

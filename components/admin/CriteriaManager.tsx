@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion, getGradeSettings, saveGradeSettings } from '../../services/api';
-import type { EvalCriterion, GradeSetting } from '../../types';
-import { Plus, Edit2, Trash2, X, Check } from 'lucide-react';
+import { getEvalCriteria, upsertEvalCriterion, deleteEvalCriterion, getGradeSettings, saveGradeSettings, getTemplates, saveTemplate, deleteTemplate } from '../../services/api';
+import type { EvalCriterion, GradeSetting, EvalTemplate } from '../../types';
+import { Plus, Edit2, Trash2, X, Check, Save, FolderOpen } from 'lucide-react';
 
 interface Props { year: number; }
 
@@ -39,12 +39,106 @@ export default function CriteriaManager({ year }: Props) {
   const [gradeModal, setGradeModal] = useState<{ mode: 'add' | 'edit'; id?: number } | null>(null);
   const [gradeSaving, setGradeSaving] = useState(false);
 
+  // Template state
+  const [criteriaTemplates, setCriteriaTemplates] = useState<EvalTemplate[]>([]);
+  const [gradeTemplates, setGradeTemplates] = useState<EvalTemplate[]>([]);
+  const [selectedCriteriaTpl, setSelectedCriteriaTpl] = useState('');
+  const [selectedGradeTpl, setSelectedGradeTpl] = useState('');
+  const [savingTpl, setSavingTpl] = useState(false);
+
   async function loadGrades() {
     const data = await getGradeSettings(year);
     setGrades(data);
   }
 
-  useEffect(() => { loadGrades(); }, [year]);
+  async function loadTemplates() {
+    const [ct, gt] = await Promise.all([
+      getTemplates(`criteria_${tab}`),
+      getTemplates('grades'),
+    ]);
+    setCriteriaTemplates(ct);
+    setGradeTemplates(gt);
+  }
+
+  useEffect(() => { loadGrades(); loadTemplates(); }, [year]);
+  useEffect(() => {
+    getTemplates(`criteria_${tab}`).then(setCriteriaTemplates);
+  }, [tab]);
+
+  async function handleSaveCriteriaTemplate() {
+    const name = prompt('템플릿 이름을 입력하세요:');
+    if (!name?.trim()) return;
+    setSavingTpl(true);
+    try {
+      await saveTemplate({ name: name.trim(), type: `criteria_${tab}`, data: criteria });
+      const ct = await getTemplates(`criteria_${tab}`);
+      setCriteriaTemplates(ct);
+      alert('저장되었습니다.');
+    } catch (e) { alert((e as Error).message); }
+    finally { setSavingTpl(false); }
+  }
+
+  async function handleLoadCriteriaTemplate() {
+    const tpl = criteriaTemplates.find(t => String(t.id) === selectedCriteriaTpl);
+    if (!tpl) return;
+    if (!confirm(`"${tpl.name}" 템플릿을 불러오면 현재 ${tab}평가 항목이 모두 교체됩니다. 계속하시겠습니까?`)) return;
+    setSavingTpl(true);
+    try {
+      for (const c of criteria) await deleteEvalCriterion(c.id!);
+      for (const c of tpl.data as EvalCriterion[]) {
+        const { id, ...rest } = c as any;
+        await upsertEvalCriterion({ ...rest, year, eval_type: tab });
+      }
+      await load();
+    } catch (e) { alert((e as Error).message); }
+    finally { setSavingTpl(false); }
+  }
+
+  async function handleDeleteCriteriaTemplate() {
+    const tpl = criteriaTemplates.find(t => String(t.id) === selectedCriteriaTpl);
+    if (!tpl || !confirm(`"${tpl.name}" 템플릿을 삭제하시겠습니까?`)) return;
+    await deleteTemplate(tpl.id!);
+    setSelectedCriteriaTpl('');
+    const ct = await getTemplates(`criteria_${tab}`);
+    setCriteriaTemplates(ct);
+  }
+
+  async function handleSaveGradeTemplate() {
+    const name = prompt('템플릿 이름을 입력하세요:');
+    if (!name?.trim()) return;
+    setSavingTpl(true);
+    try {
+      await saveTemplate({ name: name.trim(), type: 'grades', data: grades });
+      const gt = await getTemplates('grades');
+      setGradeTemplates(gt);
+      alert('저장되었습니다.');
+    } catch (e) { alert((e as Error).message); }
+    finally { setSavingTpl(false); }
+  }
+
+  async function handleLoadGradeTemplate() {
+    const tpl = gradeTemplates.find(t => String(t.id) === selectedGradeTpl);
+    if (!tpl) return;
+    if (!confirm(`"${tpl.name}" 템플릿을 불러오면 현재 등급 설정이 교체됩니다. 계속하시겠습니까?`)) return;
+    setSavingTpl(true);
+    try {
+      const items = (tpl.data as GradeSetting[]).map((g, i) => ({
+        year, grade_name: g.grade_name, min_score: g.min_score, is_selected: g.is_selected, sort_order: i,
+      }));
+      await saveGradeSettings(year, items);
+      await loadGrades();
+    } catch (e) { alert((e as Error).message); }
+    finally { setSavingTpl(false); }
+  }
+
+  async function handleDeleteGradeTemplate() {
+    const tpl = gradeTemplates.find(t => String(t.id) === selectedGradeTpl);
+    if (!tpl || !confirm(`"${tpl.name}" 템플릿을 삭제하시겠습니까?`)) return;
+    await deleteTemplate(tpl.id!);
+    setSelectedGradeTpl('');
+    const gt = await getTemplates('grades');
+    setGradeTemplates(gt);
+  }
 
   async function load() {
     setLoading(true);
@@ -199,6 +293,32 @@ export default function CriteriaManager({ year }: Props) {
       {/* ── Grade Settings Panel ─────────────────────────────────────── */}
       {pageTab === '등급설정' && (
         <div className="space-y-4">
+          {/* Template bar */}
+          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 flex-wrap">
+            <span className="text-xs font-medium text-gray-500 shrink-0">템플릿</span>
+            <select
+              value={selectedGradeTpl}
+              onChange={e => setSelectedGradeTpl(e.target.value)}
+              className="flex-1 min-w-40 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— 저장된 템플릿 선택 —</option>
+              {gradeTemplates.map(t => (
+                <option key={t.id} value={String(t.id)}>{t.name}</option>
+              ))}
+            </select>
+            <button onClick={handleLoadGradeTemplate} disabled={!selectedGradeTpl || savingTpl}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40">
+              <FolderOpen size={12} />불러오기
+            </button>
+            <button onClick={handleDeleteGradeTemplate} disabled={!selectedGradeTpl || savingTpl}
+              className="flex items-center gap-1 px-3 py-1.5 border border-red-300 text-red-500 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-40">
+              <Trash2 size={12} />삭제
+            </button>
+            <button onClick={handleSaveGradeTemplate} disabled={grades.length === 0 || savingTpl}
+              className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100 disabled:opacity-40 ml-auto">
+              <Save size={12} />현재 설정 저장
+            </button>
+          </div>
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
             최종점수 기준으로 등급을 설정하고, <strong>선정</strong> 체크된 등급 이상의 기업이 점수집계 대시보드에 표시됩니다.
           </div>
@@ -244,6 +364,33 @@ export default function CriteriaManager({ year }: Props) {
       )}
 
       {pageTab === '평가항목' && <>
+      {/* Template bar */}
+      <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200 flex-wrap">
+        <span className="text-xs font-medium text-gray-500 shrink-0">템플릿</span>
+        <select
+          value={selectedCriteriaTpl}
+          onChange={e => setSelectedCriteriaTpl(e.target.value)}
+          className="flex-1 min-w-40 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">— 저장된 템플릿 선택 —</option>
+          {criteriaTemplates.map(t => (
+            <option key={t.id} value={String(t.id)}>{t.name}</option>
+          ))}
+        </select>
+        <button onClick={handleLoadCriteriaTemplate} disabled={!selectedCriteriaTpl || savingTpl}
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-40">
+          <FolderOpen size={12} />불러오기
+        </button>
+        <button onClick={handleDeleteCriteriaTemplate} disabled={!selectedCriteriaTpl || savingTpl}
+          className="flex items-center gap-1 px-3 py-1.5 border border-red-300 text-red-500 rounded-lg text-xs font-medium hover:bg-red-50 disabled:opacity-40">
+          <Trash2 size={12} />삭제
+        </button>
+        <button onClick={handleSaveCriteriaTemplate} disabled={criteria.length === 0 || savingTpl}
+          className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100 disabled:opacity-40 ml-auto">
+          <Save size={12} />현재 설정 저장
+        </button>
+      </div>
+
       <div className="flex items-center gap-4 mb-6">
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
           {(['서류', '발표'] as EvalTypeTab[]).map(t => (

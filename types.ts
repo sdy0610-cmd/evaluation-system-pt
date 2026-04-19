@@ -130,6 +130,14 @@ export interface EvalCriterion {
   sort_order: number;
 }
 
+export interface EvalTemplate {
+  id?: number;
+  name: string;
+  type: string;
+  data: any;
+  created_at?: string;
+}
+
 export interface GradeSetting {
   id?: number;
   year: number;
