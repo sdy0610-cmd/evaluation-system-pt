@@ -314,9 +314,7 @@ ${pages.join('\n')}
                   >
                     <option value="">전체 ({evaluators.length}명)</option>
                     {evaluators.map(ev => (
-                      <option key={ev.id} value={ev.id}>
-                        위원{ev.evaluator_order} {ev.name}
-                      </option>
+                      <option key={ev.id} value={ev.id}>{ev.name}</option>
                     ))}
                   </select>
                   <button
