@@ -40,7 +40,8 @@ export default function PrintCenter({ year, user }: Props) {
   const [presSections, setPresSections] = useState<CriteriaSection[]>([]);
   const [selectedDivId, setSelectedDivId] = useState('');
   const [evalType, setEvalType] = useState<EvalTypeTab>('발표');
-  const [selectedEvalId, setSelectedEvalId] = useState(''); // '' = 전체
+  // per-company evaluator selection: companyId → evalId ('' = all)
+  const [companyEvalFilter, setCompanyEvalFilter] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -205,14 +206,15 @@ ${pages.join('\n')}
 </html>`;
   }
 
-  const filteredEvaluators = selectedEvalId
-    ? evaluators.filter(e => e.id === selectedEvalId)
-    : evaluators;
+  function getEvsForCompany(coId: string) {
+    const sel = companyEvalFilter[coId];
+    return sel ? evaluators.filter(e => e.id === sel) : evaluators;
+  }
 
   function printCompany(co: Company) {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml([co], filteredEvaluators);
+    const html = buildPrintHtml([co], getEvsForCompany(co.project_no));
     win.document.write(html);
     win.document.close();
   }
@@ -220,7 +222,8 @@ ${pages.join('\n')}
   function printAll() {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml(companies, filteredEvaluators);
+    // 전체 인쇄는 각 기업별 필터 무시하고 전체 위원으로
+    const html = buildPrintHtml(companies, evaluators);
     win.document.write(html);
     win.document.close();
   }
@@ -244,7 +247,7 @@ ${pages.join('\n')}
           {divisions.map(d => (
             <button
               key={d.id}
-              onClick={() => { setSelectedDivId(d.id); setSelectedEvalId(''); }}
+              onClick={() => { setSelectedDivId(d.id); setCompanyEvalFilter({}); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                 selectedDivId === d.id
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -268,35 +271,6 @@ ${pages.join('\n')}
         </div>
       </div>
 
-      {/* Evaluator filter */}
-      {evaluators.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          <span className="text-xs text-gray-500 shrink-0">위원 선택:</span>
-          <button
-            onClick={() => setSelectedEvalId('')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-              selectedEvalId === ''
-                ? 'bg-slate-700 text-white border-slate-700'
-                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-            }`}
-          >
-            전체
-          </button>
-          {evaluators.map(ev => (
-            <button
-              key={ev.id}
-              onClick={() => setSelectedEvalId(ev.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                selectedEvalId === ev.id
-                  ? 'bg-slate-700 text-white border-slate-700'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              위원{ev.evaluator_order} {ev.name}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Company list */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -307,12 +281,12 @@ ${pages.join('\n')}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">총 {companies.length}개 기업 · 평가위원 {evaluators.length}명</p>
           </div>
-          {companies.length > 0 && filteredEvaluators.length > 0 && (
+          {companies.length > 0 && evaluators.length > 0 && (
             <button
               onClick={printAll}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              <Printer size={15} />전체 인쇄 ({companies.length * filteredEvaluators.length}매)
+              <Printer size={15} />전체 인쇄 ({companies.length * evaluators.length}매)
             </button>
           )}
         </div>
@@ -324,20 +298,47 @@ ${pages.join('\n')}
         ) : (
           <div className="divide-y divide-gray-100">
             {companies.map((co, idx) => {
-              const evalsForCo = evaluations.filter(ev => ev.company_id === co.project_no);
+              const selEvalId = companyEvalFilter[co.project_no] || '';
+              const printCount = selEvalId ? 1 : evaluators.length;
               return (
-                <div key={co.project_no} className="flex items-center px-6 py-3 hover:bg-gray-50">
-                  <span className="w-8 text-xs text-gray-400 shrink-0">{idx + 1}</span>
-                  <span className="w-28 text-xs text-gray-500 shrink-0">{co.project_no}</span>
-                  <span className="w-24 text-sm text-gray-700 shrink-0">{co.representative}</span>
+                <div key={co.project_no} className="flex items-center px-6 py-3 gap-3 hover:bg-gray-50">
+                  <span className="w-6 text-xs text-gray-400 shrink-0">{idx + 1}</span>
+                  <span className="w-24 text-xs text-gray-500 shrink-0">{co.project_no}</span>
+                  <span className="w-20 text-sm text-gray-700 shrink-0 truncate">{co.representative}</span>
                   <span className="flex-1 text-sm text-gray-900 min-w-0 truncate">{co.project_title}</span>
-                  <span className="w-16 text-xs text-gray-500 shrink-0 text-center">{evalsForCo.length}/{evaluators.length}명</span>
+                  {/* Evaluator selector */}
+                  <div className="shrink-0 flex items-center gap-1 flex-wrap justify-end max-w-xs">
+                    <button
+                      onClick={() => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: '' }))}
+                      className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                        selEvalId === ''
+                          ? 'bg-slate-700 text-white border-slate-700'
+                          : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      전체
+                    </button>
+                    {evaluators.map(ev => (
+                      <button
+                        key={ev.id}
+                        onClick={() => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: ev.id }))}
+                        title={`위원${ev.evaluator_order} ${ev.name}`}
+                        className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                          selEvalId === ev.id
+                            ? 'bg-slate-700 text-white border-slate-700'
+                            : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {ev.evaluator_order}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={() => printCompany(co)}
-                    disabled={filteredEvaluators.length === 0}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-xs hover:bg-gray-100 disabled:opacity-40 transition-colors ml-3"
+                    disabled={evaluators.length === 0}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-xs hover:bg-gray-100 disabled:opacity-40 transition-colors"
                   >
-                    <Printer size={12} />인쇄 ({filteredEvaluators.length}매)
+                    <Printer size={12} />인쇄 ({printCount}매)
                   </button>
                 </div>
               );
