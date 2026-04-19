@@ -4,7 +4,7 @@ import {
   getGradeSettings, getEvaluators, calculateAvgScore
 } from '../../services/api';
 import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile, GradeSetting } from '../../types';
-import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer, BarChart2 } from 'lucide-react';
+import { LogOut, X, CheckCircle, Clock, Star, FileCheck, Printer, BarChart2 } from 'lucide-react';
 import GradeDashboard from '../admin/GradeDashboard';
 
 interface CriteriaSection {
@@ -136,12 +136,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     setSubmitMsg('');
   }
 
-  function handlePrintAllForms() {
-    const activeSections = presSections.length > 0 ? presSections : docSections;
-    const win = window.open('', '_blank');
-    if (!win) return;
-
-    const pages = companies.map(co => {
+  function buildFormPage(co: Company): string {
       const evalType = getActiveEvalType(co);
       if (!evalType) return '';
       const ev = getEvalForCompany(co.project_no, evalType);
@@ -188,12 +183,9 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   <div class="sig-line">소속: ${user.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${user.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">주관기관장 귀하</div>
 </div>`;
-    }).join('\n');
+  }
 
-    win.document.write(`<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8">
-<title>${user.year}년도 ${user.division?.division_name} 평가표</title>
-<style>
+  const printStyles = `
   body{font-family:'Malgun Gothic',sans-serif;font-size:11px;margin:0;padding:0}
   @page{size:A4 portrait;margin:15mm 12mm}
   .page{page-break-after:always;padding:0}.page:last-child{page-break-after:auto}
@@ -210,12 +202,28 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   .confirm{margin-top:14px;font-size:10.5px;line-height:1.6}
   .confirm-date{margin-top:8px;font-size:11px}.sig-line{margin-top:12px;font-size:11px}
   .sig-bottom{margin-top:10px;text-align:right;font-size:11px}
-  @media print{.no-print{display:none}}
-</style></head><body>
+  @media print{.no-print{display:none}}`;
+
+  function openPrintWindow(pages: string, title: string) {
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>${title}</title><style>${printStyles}</style></head><body>
 <button class="no-print" onclick="window.print()" style="margin:10px;padding:8px 20px;background:#1a56db;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">인쇄</button>
-${pages}
-</body></html>`);
+${pages}</body></html>`);
     win.document.close();
+  }
+
+  function handlePrintSingleCard(e: React.MouseEvent, co: Company) {
+    e.stopPropagation();
+    const page = buildFormPage(co);
+    if (!page) return;
+    openPrintWindow(page, `${co.project_no} 평가표`);
+  }
+
+  function handlePrintAllForms() {
+    const pages = companies.map(co => buildFormPage(co)).filter(Boolean).join('\n');
+    openPrintWindow(pages, `${user.year}년도 ${user.division?.division_name} 평가표`);
   }
 
   function handlePrintEvalForm() {
@@ -816,9 +824,18 @@ ${selected.recruit_type === '대학발' ? `
                       }`}>{evalType}</span>
                     )}
                   </div>
-                  {ev && ev.score !== undefined && (
-                    <span className="font-bold text-blue-700">{ev.adjusted_score ?? ev.score}점</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {ev && ev.score !== undefined && (
+                      <span className="font-bold text-blue-700">{ev.adjusted_score ?? ev.score}점</span>
+                    )}
+                    <button
+                      onClick={e => handlePrintSingleCard(e, co)}
+                      title="이 기업 평가표 인쇄"
+                      className="p-1 text-gray-300 hover:text-gray-600 transition-colors rounded"
+                    >
+                      <Printer size={14} />
+                    </button>
+                  </div>
                 </div>
               </button>
             );
