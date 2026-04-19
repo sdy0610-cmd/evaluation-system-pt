@@ -3,7 +3,7 @@ import {
   getCompanies, getDivisions, getEvaluators, getEvaluations, getEvalCriteria,
 } from '../../services/api';
 import type { Company, Division, Evaluator, Evaluation, EvalCriterion } from '../../types';
-import { Printer } from 'lucide-react';
+import { Printer, Settings, X, RotateCcw } from 'lucide-react';
 
 interface CriteriaSection {
   section: number;
@@ -24,6 +24,76 @@ function buildSections(items: EvalCriterion[]): CriteriaSection[] {
     .map(s => ({ ...s, items: s.items.sort((a, b) => a.key.localeCompare(b.key)) }));
 }
 
+export interface PrintTemplate {
+  subtitle: string;
+  mainTitle: string;
+  university: string;
+  labelSupportType: string;
+  labelOrg: string;
+  labelItem: string;
+  labelDivision: string;
+  thSection: string;
+  thContent: string;
+  thMax: string;
+  thScore: string;
+  totalLabel: string;
+  opinionLabel: string;
+  confirmText: string;
+  footer: string;
+}
+
+const DEFAULT_TEMPLATE: PrintTemplate = {
+  subtitle: '「{year}년 창업중심대학 지원사업」',
+  mainTitle: '(예비)창업기업 선정평가 {evalType}평가표',
+  university: '성균관대학교',
+  labelSupportType: '지 원 유 형',
+  labelOrg: '주 관 기 관 명',
+  labelItem: '아 이 템 명',
+  labelDivision: '분 과 구 분',
+  thSection: '세부평가',
+  thContent: '평가내용',
+  thMax: '배점',
+  thScore: '점수',
+  totalLabel: '최 종 점 수',
+  opinionLabel: '평 가 의 견',
+  confirmText: '본인은 {year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.',
+  footer: '주관기관장 귀하',
+};
+
+const TEMPLATE_STORAGE_KEY = 'print_template';
+
+function loadTemplate(): PrintTemplate {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (raw) return { ...DEFAULT_TEMPLATE, ...JSON.parse(raw) };
+  } catch {}
+  return { ...DEFAULT_TEMPLATE };
+}
+
+interface TemplateField {
+  key: keyof PrintTemplate;
+  label: string;
+  hint?: string;
+}
+
+const TEMPLATE_FIELDS: TemplateField[] = [
+  { key: 'subtitle', label: '부제목', hint: '{year} → 연도 자동 치환' },
+  { key: 'mainTitle', label: '주제목', hint: '{year}, {evalType} → 자동 치환' },
+  { key: 'university', label: '주관기관명' },
+  { key: 'labelSupportType', label: '메타 레이블: 지원유형' },
+  { key: 'labelOrg', label: '메타 레이블: 주관기관명' },
+  { key: 'labelItem', label: '메타 레이블: 아이템명' },
+  { key: 'labelDivision', label: '메타 레이블: 분과구분' },
+  { key: 'thSection', label: '점수표 헤더: 세부평가' },
+  { key: 'thContent', label: '점수표 헤더: 평가내용' },
+  { key: 'thMax', label: '점수표 헤더: 배점' },
+  { key: 'thScore', label: '점수표 헤더: 점수' },
+  { key: 'totalLabel', label: '합계 행 레이블' },
+  { key: 'opinionLabel', label: '평가의견 레이블' },
+  { key: 'confirmText', label: '서약 문구', hint: '{year} → 자동 치환' },
+  { key: 'footer', label: '하단 수신자' },
+];
+
 interface Props {
   year: number;
   user: Evaluator;
@@ -40,9 +110,12 @@ export default function PrintCenter({ year, user }: Props) {
   const [presSections, setPresSections] = useState<CriteriaSection[]>([]);
   const [selectedDivId, setSelectedDivId] = useState('');
   const [evalType, setEvalType] = useState<EvalTypeTab>('발표');
-  // per-company evaluator selection: companyId → evalId ('' = all)
   const [companyEvalFilter, setCompanyEvalFilter] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+
+  const [tplModalOpen, setTplModalOpen] = useState(false);
+  const [template, setTemplate] = useState<PrintTemplate>(loadTemplate);
+  const [tplDraft, setTplDraft] = useState<PrintTemplate>(loadTemplate);
 
   useEffect(() => {
     setLoading(true);
@@ -78,7 +151,12 @@ export default function PrintCenter({ year, user }: Props) {
     });
   }, [selectedDivId, evalType, year]);
 
+  function applyTpl(s: string) {
+    return s.replace(/\{year\}/g, String(year)).replace(/\{evalType\}/g, evalType);
+  }
+
   function buildPrintHtml(cos: Company[], evs: Evaluator[]): string {
+    const tpl = template;
     const sections = evalType === '서류' ? docSections : presSections;
     const div = divisions.find(d => d.id === selectedDivId);
 
@@ -106,7 +184,7 @@ export default function PrintCenter({ year, user }: Props) {
             ).join('')
           : `<tr><td colspan="3">총점</td><td class="pts">${finalScore}</td></tr>`;
 
-        const totalRow = `<tr class="total-row"><td colspan="3" style="text-align:right;font-weight:bold">최 종 점 수</td><td class="pts" style="font-weight:bold">${evaluation ? finalScore : ''}</td></tr>`;
+        const totalRow = `<tr class="total-row"><td colspan="3" style="text-align:right;font-weight:bold">${tpl.totalLabel}</td><td class="pts" style="font-weight:bold">${evaluation ? finalScore : ''}</td></tr>`;
 
         const opinionSection = evaluation?.comment
           ? `<td class="opinion-area">${evaluation.comment}</td>`
@@ -120,36 +198,36 @@ export default function PrintCenter({ year, user }: Props) {
 
         return `<div class="page">
   <div class="title-box">
-    <div class="sub">「${year}년 창업중심대학 지원사업」</div>
-    <div class="main">(예비)창업기업 선정평가 ${evalType}평가표</div>
+    <div class="sub">${applyTpl(tpl.subtitle)}</div>
+    <div class="main">${applyTpl(tpl.mainTitle)}</div>
   </div>
   <table class="meta">
     <tr>
-      <td class="label" width="120">지 원 유 형</td>
+      <td class="label" width="120">${tpl.labelSupportType}</td>
       <td colspan="3">${co.recruit_type || '①지역기반 / ②대학발 / ③실험실창업'}</td>
     </tr>
     <tr>
-      <td class="label">주 관 기 관 명</td>
-      <td width="200">성균관대학교</td>
+      <td class="label">${tpl.labelOrg}</td>
+      <td width="200">${tpl.university}</td>
       <td class="label" width="100">과 제 번 호</td>
       <td>${co.project_no}</td>
     </tr>
     <tr>
-      <td class="label">아 이 템 명</td>
+      <td class="label">${tpl.labelItem}</td>
       <td colspan="3">${co.project_title}</td>
     </tr>
     <tr>
-      <td class="label">분 과 구 분</td>
+      <td class="label">${tpl.labelDivision}</td>
       <td colspan="3">${div?.division_label || ''} (${div?.division_name || ''})</td>
     </tr>
   </table>
   <table class="score-tbl">
     <thead>
       <tr>
-        <th width="160">세부평가</th>
-        <th>평가내용</th>
-        <th width="50">배점</th>
-        <th width="60">점수</th>
+        <th width="160">${tpl.thSection}</th>
+        <th>${tpl.thContent}</th>
+        <th width="50">${tpl.thMax}</th>
+        <th width="60">${tpl.thScore}</th>
       </tr>
     </thead>
     <tbody>
@@ -158,14 +236,14 @@ export default function PrintCenter({ year, user }: Props) {
     </tbody>
   </table>
   <table class="opinion-tbl">
-    <tr><th>평 가 의 견</th></tr>
+    <tr><th>${tpl.opinionLabel}</th></tr>
     <tr>${opinionSection}</tr>
     ${univNote}
   </table>
-  <div class="confirm">본인은 ${year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
+  <div class="confirm">${applyTpl(tpl.confirmText)}</div>
   <div class="confirm-date">${year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
   <div class="sig-line">소속: ${ev.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${ev.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${ev.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
-  <div class="sig-bottom">주관기관장 귀하</div>
+  <div class="sig-bottom">${tpl.footer}</div>
 </div>`;
       })
     );
@@ -222,10 +300,25 @@ ${pages.join('\n')}
   function printAll() {
     const win = window.open('', '_blank');
     if (!win) return;
-    // 전체 인쇄는 각 기업별 필터 무시하고 전체 위원으로
     const html = buildPrintHtml(companies, evaluators);
     win.document.write(html);
     win.document.close();
+  }
+
+  function openTplModal() {
+    setTplDraft({ ...template });
+    setTplModalOpen(true);
+  }
+
+  function saveTpl() {
+    setTemplate({ ...tplDraft });
+    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(tplDraft));
+    setTplModalOpen(false);
+  }
+
+  function resetTpl() {
+    if (!confirm('기본값으로 초기화할까요?')) return;
+    setTplDraft({ ...DEFAULT_TEMPLATE });
   }
 
   const div = divisions.find(d => d.id === selectedDivId);
@@ -274,21 +367,29 @@ ${pages.join('\n')}
 
       {/* Company list */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-gray-900">
               {div?.division_name} — {evalType}평가 대상 기업
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">총 {companies.length}개 기업 · 평가위원 {evaluators.length}명</p>
           </div>
-          {companies.length > 0 && evaluators.length > 0 && (
+          <div className="flex items-center gap-2 ml-auto">
             <button
-              onClick={printAll}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              onClick={openTplModal}
+              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
             >
-              <Printer size={15} />전체 인쇄 ({companies.length * evaluators.length}매)
+              <Settings size={14} />양식 편집
             </button>
-          )}
+            {companies.length > 0 && evaluators.length > 0 && (
+              <button
+                onClick={printAll}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Printer size={15} />전체 인쇄 ({companies.length * evaluators.length}매)
+              </button>
+            )}
+          </div>
         </div>
 
         {companies.length === 0 ? (
@@ -306,7 +407,6 @@ ${pages.join('\n')}
                   <span className="w-24 text-xs text-gray-500 shrink-0">{co.project_no}</span>
                   <span className="w-20 text-sm text-gray-700 shrink-0 truncate">{co.representative}</span>
                   <span className="flex-1 text-sm text-gray-900 min-w-0 truncate">{co.project_title}</span>
-                  {/* Evaluator selector */}
                   <select
                     value={selEvalId}
                     onChange={e => setCompanyEvalFilter(prev => ({ ...prev, [co.project_no]: e.target.value }))}
@@ -330,6 +430,67 @@ ${pages.join('\n')}
           </div>
         )}
       </div>
+
+      {/* Template edit modal */}
+      {tplModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">평가표 양식 편집</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetTpl}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <RotateCcw size={12} />기본값
+                </button>
+                <button onClick={() => setTplModalOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+              {TEMPLATE_FIELDS.map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {f.label}
+                    {f.hint && <span className="ml-1 text-gray-400 font-normal">({f.hint})</span>}
+                  </label>
+                  {f.key === 'confirmText' ? (
+                    <textarea
+                      rows={3}
+                      value={tplDraft[f.key]}
+                      onChange={e => setTplDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={tplDraft[f.key]}
+                      onChange={e => setTplDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => setTplModalOpen(false)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={saveTpl}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
