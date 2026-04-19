@@ -394,6 +394,33 @@ export async function deleteCompanyFile(id: number): Promise<void> {
   if (error) throw error;
 }
 
+export async function listBucketFiles(): Promise<{ path: string; name: string; size: number }[]> {
+  const result: { path: string; name: string; size: number }[] = [];
+
+  async function listFolder(prefix: string) {
+    const { data, error } = await supabase.storage.from('startup-companies').list(prefix, { limit: 1000 });
+    if (error || !data) return;
+    for (const item of data) {
+      if (item.id === null) {
+        // folder
+        await listFolder(prefix ? `${prefix}/${item.name}` : item.name);
+      } else {
+        const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+        result.push({ path: fullPath, name: item.name, size: item.metadata?.size || 0 });
+      }
+    }
+  }
+
+  await listFolder('');
+  return result;
+}
+
+export async function bulkAddCompanyFiles(entries: Omit<import('../types').CompanyFile, 'id' | 'uploaded_at'>[]): Promise<void> {
+  if (!entries.length) return;
+  const { error } = await supabase.from('startup_company_files').upsert(entries, { onConflict: 'company_id,file_path' });
+  if (error) throw error;
+}
+
 // ── Excel Parsing (Company Import) ───────────────────────────────────────────
 const COL_MAP: Record<string, string> = {
   '과제번호': 'project_no',

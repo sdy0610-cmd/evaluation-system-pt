@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   getCompanies, getDivisions, updateCompany, upsertCompany, bulkUpsertCompanies,
-  parseCompanyExcel, getBonusPointsBulk, upsertBonusPoint
+  parseCompanyExcel, getBonusPointsBulk, upsertBonusPoint, getCompanyFiles
 } from '../../services/api';
 import type { Company, Division, BonusPoint } from '../../types';
-import { Upload, Download, Edit2, X, Search, Plus, Star, AlertTriangle, FileCheck, FolderUp } from 'lucide-react';
+import { Upload, Download, Edit2, X, Search, Plus, Star, AlertTriangle, FileCheck, FolderUp, FileText, ScanSearch } from 'lucide-react';
 import FileUploadModal from './FileUploadModal';
+import StorageScanModal from './StorageScanModal';
+import CompanyFilesModal from './CompanyFilesModal';
 import * as XLSX from 'xlsx';
 
 interface Props { year: number; }
@@ -29,6 +31,9 @@ export default function CompaniesManager({ year }: Props) {
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState('');
   const [fileModal, setFileModal] = useState(false);
+  const [scanModal, setScanModal] = useState(false);
+  const [filesModal, setFilesModal] = useState<Company | null>(null);
+  const [companyFileCounts, setCompanyFileCounts] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -37,13 +42,19 @@ export default function CompaniesManager({ year }: Props) {
     setCompanies(cos);
     setDivisions(divs);
     if (cos.length > 0) {
-      const bps = await getBonusPointsBulk(cos.map(c => c.project_no));
+      const ids = cos.map(c => c.project_no);
+      const [bps, cfs] = await Promise.all([
+        getBonusPointsBulk(ids),
+        getCompanyFiles(ids),
+      ]);
       const bm: Record<string, BonusPoint[]> = {};
-      bps.forEach(bp => {
-        if (!bm[bp.company_id]) bm[bp.company_id] = [];
-        bm[bp.company_id].push(bp);
-      });
+      bps.forEach(bp => { if (!bm[bp.company_id]) bm[bp.company_id] = []; bm[bp.company_id].push(bp); });
       setBonusMap(bm);
+      const counts: Record<string, number> = {};
+      cfs.forEach(f => { counts[f.company_id] = (counts[f.company_id] || 0) + 1; });
+      // Also count legacy file_path
+      cos.forEach(c => { if (c.file_path && !counts[c.project_no]) counts[c.project_no] = 1; });
+      setCompanyFileCounts(counts);
     }
     setLoading(false);
   }
@@ -180,6 +191,12 @@ export default function CompaniesManager({ year }: Props) {
             <Download size={15} />양식 다운로드
           </button>
           <button
+            onClick={() => setScanModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <ScanSearch size={15} />기존 파일 스캔
+          </button>
+          <button
             onClick={() => setFileModal(true)}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
           >
@@ -256,7 +273,7 @@ export default function CompaniesManager({ year }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {['과제번호', '대표자명', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
+                {['과제번호', '대표자명', '자료', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -276,6 +293,19 @@ export default function CompaniesManager({ year }: Props) {
                       ) : co.project_no}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{co.representative}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setFilesModal(co)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${
+                          companyFileCounts[co.project_no]
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                        }`}
+                      >
+                        <FileText size={11} />
+                        {companyFileCounts[co.project_no] || 0}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-gray-700 max-w-48 truncate" title={co.project_title}>{co.project_title}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{co.tech_field}</td>
                     <td className="px-4 py-3">
@@ -504,6 +534,24 @@ export default function CompaniesManager({ year }: Props) {
           year={year}
           onClose={() => setFileModal(false)}
           onDone={() => { setFileModal(false); load(); }}
+        />
+      )}
+
+      {scanModal && (
+        <StorageScanModal
+          companies={companies}
+          year={year}
+          onClose={() => setScanModal(false)}
+          onDone={() => { setScanModal(false); load(); }}
+        />
+      )}
+
+      {filesModal && (
+        <CompanyFilesModal
+          company={filesModal}
+          year={year}
+          onClose={() => setFilesModal(null)}
+          onChanged={() => load()}
         />
       )}
 
