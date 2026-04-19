@@ -24,9 +24,11 @@ function buildSections(items: EvalCriterion[]): CriteriaSection[] {
     .map(s => ({ ...s, items: s.items.sort((a, b) => a.key.localeCompare(b.key)) }));
 }
 
+// Template stores only the editable (static) portions.
+// Dynamic parts (year, evalType) are added in buildPrintHtml.
 export interface PrintTemplate {
-  subtitle: string;
-  mainTitle: string;
+  programName: string;    // e.g. "창업중심대학 지원사업"  → 「{year}년 {programName}」
+  evalFormTitle: string;  // e.g. "(예비)창업기업 선정평가" → {evalFormTitle} {evalType}평가표
   university: string;
   labelSupportType: string;
   labelOrg: string;
@@ -38,13 +40,13 @@ export interface PrintTemplate {
   thScore: string;
   totalLabel: string;
   opinionLabel: string;
-  confirmText: string;
+  confirmBody: string;    // sentence after "본인은 {year}년 "
   footer: string;
 }
 
 const DEFAULT_TEMPLATE: PrintTemplate = {
-  subtitle: '「{year}년 창업중심대학 지원사업」',
-  mainTitle: '(예비)창업기업 선정평가 {evalType}평가표',
+  programName: '창업중심대학 지원사업',
+  evalFormTitle: '(예비)창업기업 선정평가',
   university: '성균관대학교',
   labelSupportType: '지 원 유 형',
   labelOrg: '주 관 기 관 명',
@@ -56,43 +58,19 @@ const DEFAULT_TEMPLATE: PrintTemplate = {
   thScore: '점수',
   totalLabel: '최 종 점 수',
   opinionLabel: '평 가 의 견',
-  confirmText: '본인은 {year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.',
+  confirmBody: '창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.',
   footer: '주관기관장 귀하',
 };
 
-const TEMPLATE_STORAGE_KEY = 'print_template';
+const STORAGE_KEY = 'print_template_v2';
 
 function loadTemplate(): PrintTemplate {
   try {
-    const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return { ...DEFAULT_TEMPLATE, ...JSON.parse(raw) };
   } catch {}
   return { ...DEFAULT_TEMPLATE };
 }
-
-interface TemplateField {
-  key: keyof PrintTemplate;
-  label: string;
-  hint?: string;
-}
-
-const TEMPLATE_FIELDS: TemplateField[] = [
-  { key: 'subtitle', label: '부제목', hint: '{year} → 연도 자동 치환' },
-  { key: 'mainTitle', label: '주제목', hint: '{year}, {evalType} → 자동 치환' },
-  { key: 'university', label: '주관기관명' },
-  { key: 'labelSupportType', label: '메타 레이블: 지원유형' },
-  { key: 'labelOrg', label: '메타 레이블: 주관기관명' },
-  { key: 'labelItem', label: '메타 레이블: 아이템명' },
-  { key: 'labelDivision', label: '메타 레이블: 분과구분' },
-  { key: 'thSection', label: '점수표 헤더: 세부평가' },
-  { key: 'thContent', label: '점수표 헤더: 평가내용' },
-  { key: 'thMax', label: '점수표 헤더: 배점' },
-  { key: 'thScore', label: '점수표 헤더: 점수' },
-  { key: 'totalLabel', label: '합계 행 레이블' },
-  { key: 'opinionLabel', label: '평가의견 레이블' },
-  { key: 'confirmText', label: '서약 문구', hint: '{year} → 자동 치환' },
-  { key: 'footer', label: '하단 수신자' },
-];
 
 interface Props {
   year: number;
@@ -100,6 +78,57 @@ interface Props {
 }
 
 type EvalTypeTab = '서류' | '발표';
+
+// Inline label with fixed surrounding text and an editable input in the middle
+function CompositeField({
+  label, prefix, suffix, value, onChange, textarea,
+}: {
+  label: string;
+  prefix?: string;
+  suffix?: string;
+  value: string;
+  onChange: (v: string) => void;
+  textarea?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-gray-600 mb-1">{label}</div>
+      <div className="flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+        {prefix && <span className="text-gray-400 text-sm shrink-0 select-none">{prefix}</span>}
+        {textarea ? (
+          <textarea
+            rows={2}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="flex-1 text-sm outline-none resize-none bg-transparent"
+          />
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="flex-1 text-sm outline-none bg-transparent min-w-0"
+          />
+        )}
+        {suffix && <span className="text-gray-400 text-sm shrink-0 select-none">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+function SimpleField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-gray-600 mb-1">{label}</div>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
 
 export default function PrintCenter({ year, user }: Props) {
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -115,7 +144,11 @@ export default function PrintCenter({ year, user }: Props) {
 
   const [tplModalOpen, setTplModalOpen] = useState(false);
   const [template, setTemplate] = useState<PrintTemplate>(loadTemplate);
-  const [tplDraft, setTplDraft] = useState<PrintTemplate>(loadTemplate);
+  const [draft, setDraft] = useState<PrintTemplate>(loadTemplate);
+
+  function setDraftField<K extends keyof PrintTemplate>(key: K, value: PrintTemplate[K]) {
+    setDraft(prev => ({ ...prev, [key]: value }));
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -151,10 +184,6 @@ export default function PrintCenter({ year, user }: Props) {
     });
   }, [selectedDivId, evalType, year]);
 
-  function applyTpl(s: string) {
-    return s.replace(/\{year\}/g, String(year)).replace(/\{evalType\}/g, evalType);
-  }
-
   function buildPrintHtml(cos: Company[], evs: Evaluator[]): string {
     const tpl = template;
     const sections = evalType === '서류' ? docSections : presSections;
@@ -173,7 +202,7 @@ export default function PrintCenter({ year, user }: Props) {
         const finalScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score ?? 0) : 0;
 
         const scoreRows = sections.length > 0
-          ? sections.flatMap((sec, si) =>
+          ? sections.flatMap((sec, _si) =>
               sec.items.map((item, ii) => {
                 const itemScore = ss?.[item.key] ?? '';
                 const secCell = ii === 0
@@ -198,8 +227,8 @@ export default function PrintCenter({ year, user }: Props) {
 
         return `<div class="page">
   <div class="title-box">
-    <div class="sub">${applyTpl(tpl.subtitle)}</div>
-    <div class="main">${applyTpl(tpl.mainTitle)}</div>
+    <div class="sub">「${year}년 ${tpl.programName}」</div>
+    <div class="main">${tpl.evalFormTitle} ${evalType}평가표</div>
   </div>
   <table class="meta">
     <tr>
@@ -240,7 +269,7 @@ export default function PrintCenter({ year, user }: Props) {
     <tr>${opinionSection}</tr>
     ${univNote}
   </table>
-  <div class="confirm">${applyTpl(tpl.confirmText)}</div>
+  <div class="confirm">본인은 ${year}년 ${tpl.confirmBody}</div>
   <div class="confirm-date">${year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
   <div class="sig-line">소속: ${ev.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${ev.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${ev.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">${tpl.footer}</div>
@@ -292,33 +321,31 @@ ${pages.join('\n')}
   function printCompany(co: Company) {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml([co], getEvsForCompany(co.project_no));
-    win.document.write(html);
+    win.document.write(buildPrintHtml([co], getEvsForCompany(co.project_no)));
     win.document.close();
   }
 
   function printAll() {
     const win = window.open('', '_blank');
     if (!win) return;
-    const html = buildPrintHtml(companies, evaluators);
-    win.document.write(html);
+    win.document.write(buildPrintHtml(companies, evaluators));
     win.document.close();
   }
 
-  function openTplModal() {
-    setTplDraft({ ...template });
+  function openModal() {
+    setDraft({ ...template });
     setTplModalOpen(true);
   }
 
   function saveTpl() {
-    setTemplate({ ...tplDraft });
-    localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(tplDraft));
+    setTemplate({ ...draft });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
     setTplModalOpen(false);
   }
 
-  function resetTpl() {
+  function resetDraft() {
     if (!confirm('기본값으로 초기화할까요?')) return;
-    setTplDraft({ ...DEFAULT_TEMPLATE });
+    setDraft({ ...DEFAULT_TEMPLATE });
   }
 
   const div = divisions.find(d => d.id === selectedDivId);
@@ -334,7 +361,6 @@ ${pages.join('\n')}
         </div>
       </div>
 
-      {/* Division & type selectors */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex gap-2 flex-wrap">
           {divisions.map(d => (
@@ -364,10 +390,8 @@ ${pages.join('\n')}
         </div>
       </div>
 
-
-      {/* Company list */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
           <div>
             <h2 className="font-semibold text-gray-900">
               {div?.division_name} — {evalType}평가 대상 기업
@@ -376,7 +400,7 @@ ${pages.join('\n')}
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <button
-              onClick={openTplModal}
+              onClick={openModal}
               className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
             >
               <Settings size={14} />양식 편집
@@ -439,7 +463,7 @@ ${pages.join('\n')}
               <h3 className="font-semibold text-gray-900">평가표 양식 편집</h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={resetTpl}
+                  onClick={resetDraft}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   <RotateCcw size={12} />기본값
@@ -449,31 +473,59 @@ ${pages.join('\n')}
                 </button>
               </div>
             </div>
+
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-              {TEMPLATE_FIELDS.map(f => (
-                <div key={f.key}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    {f.label}
-                    {f.hint && <span className="ml-1 text-gray-400 font-normal">({f.hint})</span>}
-                  </label>
-                  {f.key === 'confirmText' ? (
-                    <textarea
-                      rows={3}
-                      value={tplDraft[f.key]}
-                      onChange={e => setTplDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={tplDraft[f.key]}
-                      onChange={e => setTplDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  )}
-                </div>
-              ))}
+              {/* Title section */}
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">제목</div>
+              <CompositeField
+                label="부제목"
+                prefix={`「${year}년 `}
+                suffix="」"
+                value={draft.programName}
+                onChange={v => setDraftField('programName', v)}
+              />
+              <CompositeField
+                label="주제목"
+                suffix={` ${evalType}평가표`}
+                value={draft.evalFormTitle}
+                onChange={v => setDraftField('evalFormTitle', v)}
+              />
+
+              {/* Meta table labels */}
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">기본 정보 레이블</div>
+              <SimpleField label="주관기관명" value={draft.university} onChange={v => setDraftField('university', v)} />
+              <div className="grid grid-cols-2 gap-3">
+                <SimpleField label="지원유형 레이블" value={draft.labelSupportType} onChange={v => setDraftField('labelSupportType', v)} />
+                <SimpleField label="주관기관명 레이블" value={draft.labelOrg} onChange={v => setDraftField('labelOrg', v)} />
+                <SimpleField label="아이템명 레이블" value={draft.labelItem} onChange={v => setDraftField('labelItem', v)} />
+                <SimpleField label="분과구분 레이블" value={draft.labelDivision} onChange={v => setDraftField('labelDivision', v)} />
+              </div>
+
+              {/* Score table headers */}
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">점수표 헤더</div>
+              <div className="grid grid-cols-4 gap-3">
+                <SimpleField label="세부평가" value={draft.thSection} onChange={v => setDraftField('thSection', v)} />
+                <SimpleField label="평가내용" value={draft.thContent} onChange={v => setDraftField('thContent', v)} />
+                <SimpleField label="배점" value={draft.thMax} onChange={v => setDraftField('thMax', v)} />
+                <SimpleField label="점수" value={draft.thScore} onChange={v => setDraftField('thScore', v)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <SimpleField label="합계 행 레이블" value={draft.totalLabel} onChange={v => setDraftField('totalLabel', v)} />
+                <SimpleField label="평가의견 레이블" value={draft.opinionLabel} onChange={v => setDraftField('opinionLabel', v)} />
+              </div>
+
+              {/* Confirm text */}
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-2">서약 / 하단</div>
+              <CompositeField
+                label="서약 문구"
+                prefix={`본인은 ${year}년 `}
+                value={draft.confirmBody}
+                onChange={v => setDraftField('confirmBody', v)}
+                textarea
+              />
+              <SimpleField label="하단 수신자" value={draft.footer} onChange={v => setDraftField('footer', v)} />
             </div>
+
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
               <button
                 onClick={() => setTplModalOpen(false)}
