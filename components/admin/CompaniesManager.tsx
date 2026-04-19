@@ -279,7 +279,7 @@ export default function CompaniesManager({ year }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.slice(0, 200).map(co => {
+              {filtered.map(co => {
                 const bps = bonusMap[co.project_no] || [];
                 const bonusTotal = bps.reduce((s, b) => s + (b.points || 0), 0);
                 return (
@@ -357,11 +357,6 @@ export default function CompaniesManager({ year }: Props) {
             </tbody>
           </table>
         </div>
-        {filtered.length > 200 && (
-          <div className="px-4 py-3 bg-amber-50 text-amber-700 text-xs border-t border-amber-200">
-            200건 초과 — 필터를 좁혀주세요. (전체 {filtered.length}건)
-          </div>
-        )}
       </div>
 
       {/* Edit Modal */}
