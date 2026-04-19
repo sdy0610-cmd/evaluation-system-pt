@@ -107,12 +107,25 @@ export interface CompanyScoreRow {
   all_confirmed: boolean;
 }
 
+export interface EvalCriterion {
+  id?: number;
+  year: number;
+  eval_type: '서류' | '발표';
+  section_no: number;
+  section_name: string;
+  item_key: string;
+  item_name: string;
+  item_max: number;
+  sort_order: number;
+}
+
 export type AdminView =
   | 'dashboard'
   | 'divisions'
   | 'evaluators'
   | 'companies'
   | 'score-review'
-  | 'report';
+  | 'report'
+  | 'criteria';
 
 export type AppView = 'login' | 'admin' | 'evaluator';

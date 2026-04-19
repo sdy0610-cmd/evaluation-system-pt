@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import type { Division, TechField, Evaluator, Company, BonusPoint, Evaluation } from '../types';
+import type { Division, TechField, Evaluator, Company, BonusPoint, Evaluation, EvalCriterion } from '../types';
 
 // ── Score calculation ────────────────────────────────────────────────────────
 // 5명 위원 중 최고점·최저점 제외 후 나머지 3점 평균
@@ -265,6 +265,34 @@ export async function confirmEvaluations(
     .eq('evaluation_type', evalType);
   if (error) throw error;
   void confirmedBy;
+}
+
+// ── Eval Criteria ─────────────────────────────────────────────────────────────
+export async function getEvalCriteria(year: number, evalType: string): Promise<EvalCriterion[]> {
+  const { data, error } = await supabase
+    .from('startup_eval_criteria')
+    .select('*')
+    .eq('year', year)
+    .eq('eval_type', evalType)
+    .order('section_no')
+    .order('sort_order');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertEvalCriterion(c: Partial<EvalCriterion>): Promise<EvalCriterion> {
+  const { data, error } = await supabase
+    .from('startup_eval_criteria')
+    .upsert(c, { onConflict: c.id ? 'id' : 'year,eval_type,item_key' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteEvalCriterion(id: number): Promise<void> {
+  const { error } = await supabase.from('startup_eval_criteria').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ── File Storage ─────────────────────────────────────────────────────────────

@@ -1,48 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import {
-  getCompanies, getEvaluations, saveEvaluation, getFileUrl
+  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria
 } from '../../services/api';
-import type { Evaluator, Company, Evaluation } from '../../types';
+import type { Evaluator, Company, Evaluation, EvalCriterion } from '../../types';
 import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer } from 'lucide-react';
 
-const PRES_CRITERIA = [
-  {
-    section: 1,
-    name: '창업 아이템 혁신성 및 완성도',
-    total: 35,
-    items: [
-      { key: '1-1', name: '혁신성 및 차별성', max: 20 },
-      { key: '1-2', name: '아이템 완성도 및 기술성', max: 15 },
-    ],
-  },
-  {
-    section: 2,
-    name: '사업화 역량 및 시장성',
-    total: 30,
-    items: [
-      { key: '2-1', name: '목표시장 규모 및 성장가능성', max: 15 },
-      { key: '2-2', name: '사업화 전략 및 수익모델', max: 15 },
-    ],
-  },
-  {
-    section: 3,
-    name: '창업팀 역량',
-    total: 25,
-    items: [
-      { key: '3-1', name: '창업자·팀 전문성', max: 15 },
-      { key: '3-2', name: '실행 의지 및 역량', max: 10 },
-    ],
-  },
-  {
-    section: 4,
-    name: '정책 목표 부합성',
-    total: 10,
-    items: [
-      { key: '4-1', name: '고용·수출·사회적 가치 창출', max: 5 },
-      { key: '4-2', name: '지원 분야 적합성', max: 5 },
-    ],
-  },
-];
+interface CriteriaSection {
+  section: number;
+  name: string;
+  total: number;
+  items: { key: string; name: string; max: number }[];
+}
+
+function buildSections(items: EvalCriterion[]): CriteriaSection[] {
+  const map: Record<number, CriteriaSection> = {};
+  items.forEach(c => {
+    if (!map[c.section_no]) map[c.section_no] = { section: c.section_no, name: c.section_name, total: 0, items: [] };
+    map[c.section_no].items.push({ key: c.item_key, name: c.item_name, max: c.item_max });
+    map[c.section_no].total += c.item_max;
+  });
+  return Object.values(map)
+    .sort((a, b) => a.section - b.section)
+    .map(s => ({ ...s, items: s.items.sort((a, b) => a.key.localeCompare(b.key)) }));
+}
 
 interface Props {
   user: Evaluator;
@@ -54,6 +34,8 @@ type Filter = 'all' | 'done' | 'todo';
 export default function EvaluatorApp({ user, onLogout }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [docSections, setDocSections] = useState<CriteriaSection[]>([]);
+  const [presSections, setPresSections] = useState<CriteriaSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Company | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
@@ -75,9 +57,13 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     Promise.all([
       getCompanies(user.year, user.division_id),
       getEvaluations({ evaluatorId: user.id }),
-    ]).then(([cos, evs]) => {
+      getEvalCriteria(user.year, '서류'),
+      getEvalCriteria(user.year, '발표'),
+    ]).then(([cos, evs, docC, presC]) => {
       setCompanies(cos.filter(c => !c.is_excluded));
       setEvaluations(evs);
+      setDocSections(buildSections(docC));
+      setPresSections(buildSections(presC));
       setLoading(false);
     });
   }, [user]);
@@ -104,7 +90,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     const type = getActiveEvalType(co);
     if (type) {
       const ev = getEvalForCompany(co.project_no, type);
-      if (type === '발표' && ev?.sub_scores && Object.keys(ev.sub_scores).length > 0) {
+      if (ev?.sub_scores && Object.keys(ev.sub_scores).length > 0) {
         const ss = ev.sub_scores as Record<string, number>;
         setSubScores(ss);
         const total = Object.values(ss).reduce((a, b) => a + b, 0);
@@ -132,7 +118,8 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     const ss = selectedEv.sub_scores as Record<string, number> | undefined;
     const win = window.open('', '_blank');
     if (!win) return;
-    const subsHtml = ss ? PRES_CRITERIA.map(sec => `
+    const activeSections = selectedEvalType === '서류' ? docSections : presSections;
+    const subsHtml = ss && activeSections.length > 0 ? activeSections.map(sec => `
       <tr><td colspan="3" style="background:#f5f5f5;font-weight:bold;padding:4px 8px">${sec.section}. ${sec.name} (${sec.total}점)</td></tr>
       ${sec.items.map(it => `<tr><td style="padding:3px 8px;padding-left:20px">${it.key}. ${it.name}</td><td style="text-align:center">${it.max}점</td><td style="text-align:center">${ss[it.key] ?? 0}점</td></tr>`).join('')}
     `).join('') : `<tr><td colspan="2">점수</td><td style="text-align:center">${sc}점</td></tr>`;
@@ -202,7 +189,7 @@ ${selected.recruit_type === '대학발' ? `
         evaluator_id: user.id,
         evaluation_type: evalType,
         score: sc,
-        sub_scores: evalType === '발표' && Object.keys(subScores).length > 0 ? subScores : undefined,
+        sub_scores: Object.keys(subScores).length > 0 ? subScores : undefined,
         comment: comment.trim() || undefined,
         region_match: selected.recruit_type === '대학발' ? (regionMatch ?? undefined) : undefined,
         region_match_comment: selected.recruit_type === '대학발' ? (regionMatchComment.trim() || undefined) : undefined,
@@ -375,9 +362,11 @@ ${selected.recruit_type === '대학발' ? `
                   </div>
                 ) : (
                   <>
-                    {selectedEvalType === '발표' ? (
+                    {(() => {
+                      const activeSections = selectedEvalType === '서류' ? docSections : presSections;
+                      return activeSections.length > 0 ? (
                       <div className="space-y-4">
-                        {PRES_CRITERIA.map(section => {
+                        {activeSections.map(section => {
                           const sectionTotal = section.items.reduce((sum, it) => sum + (subScores[it.key] ?? 0), 0);
                           return (
                             <div key={section.section} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -421,7 +410,9 @@ ${selected.recruit_type === '대학발' ? `
                           <span className="text-2xl font-bold text-blue-700">{score || 0}점</span>
                         </div>
                       </div>
-                    ) : (
+                      ) : null;
+                    })()}
+                    {(selectedEvalType === '서류' ? docSections : presSections).length === 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">점수 (0~100점)</label>
                         <div className="space-y-2">
