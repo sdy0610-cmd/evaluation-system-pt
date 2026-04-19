@@ -183,7 +183,7 @@ export default function CriteriaManager({ year }: Props) {
                     <tr className="border-b border-gray-100 bg-gray-50/50">
                       <th className="px-5 py-2 text-left text-xs font-medium text-gray-400 w-20">키</th>
                       <th className="px-5 py-2 text-left text-xs font-medium text-gray-400">항목명</th>
-                      <th className="px-5 py-2 text-center text-xs font-medium text-gray-400 w-20">배점</th>
+                      <th className="px-5 py-2 text-center text-xs font-medium text-gray-400 w-28">배점</th>
                       <th className="px-5 py-2 w-20"></th>
                     </tr>
                   </thead>
@@ -195,7 +195,7 @@ export default function CriteriaManager({ year }: Props) {
                           <td className="px-5 py-3 font-mono text-xs text-gray-400">{item.item_key}</td>
                           <td className="px-5 py-3 text-gray-800">{item.item_name}</td>
                           <td className="px-5 py-3 text-center">
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                            <span className="inline-block whitespace-nowrap px-2.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
                               {item.item_max}점
                             </span>
                           </td>
