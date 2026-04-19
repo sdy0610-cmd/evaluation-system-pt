@@ -4,7 +4,8 @@ import {
   parseCompanyExcel, getBonusPointsBulk, upsertBonusPoint
 } from '../../services/api';
 import type { Company, Division, BonusPoint } from '../../types';
-import { Upload, Download, Edit2, X, Search, Plus, Star, AlertTriangle, FileCheck } from 'lucide-react';
+import { Upload, Download, Edit2, X, Search, Plus, Star, AlertTriangle, FileCheck, FolderUp } from 'lucide-react';
+import FileUploadModal from './FileUploadModal';
 import * as XLSX from 'xlsx';
 
 interface Props { year: number; }
@@ -27,6 +28,7 @@ export default function CompaniesManager({ year }: Props) {
   const [addForm, setAddForm] = useState({ project_no: '', project_title: '', representative: '', division_id: '', tech_field: '', recruit_type: '', stage: '서류' as const });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState('');
+  const [fileModal, setFileModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -154,6 +156,10 @@ export default function CompaniesManager({ year }: Props) {
       );
     }
     return true;
+  }).sort((a, b) => {
+    const aAuto = a.project_no.startsWith('AUTO-') ? 0 : 1;
+    const bAuto = b.project_no.startsWith('AUTO-') ? 0 : 1;
+    return aAuto - bAuto;
   });
 
   if (loading) return <div className="p-8 text-center text-gray-400 text-sm">로딩 중...</div>;
@@ -172,6 +178,12 @@ export default function CompaniesManager({ year }: Props) {
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             <Download size={15} />양식 다운로드
+          </button>
+          <button
+            onClick={() => setFileModal(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <FolderUp size={15} />자료 업로드
           </button>
           <button
             onClick={() => fileRef.current?.click()}
@@ -255,7 +267,14 @@ export default function CompaniesManager({ year }: Props) {
                 const bonusTotal = bps.reduce((s, b) => s + (b.points || 0), 0);
                 return (
                   <tr key={co.project_no} className={`hover:bg-gray-50 ${co.is_excluded ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{co.project_no}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                      {co.project_no.startsWith('AUTO-') ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">AUTO</span>
+                          <span className="text-gray-400">{co.project_no}</span>
+                        </span>
+                      ) : co.project_no}
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{co.representative}</td>
                     <td className="px-4 py-3 text-gray-700 max-w-48 truncate" title={co.project_title}>{co.project_title}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{co.tech_field}</td>
@@ -477,6 +496,15 @@ export default function CompaniesManager({ year }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {fileModal && (
+        <FileUploadModal
+          companies={companies}
+          year={year}
+          onClose={() => setFileModal(false)}
+          onDone={() => { setFileModal(false); load(); }}
+        />
       )}
 
       {/* Add company modal */}

@@ -67,6 +67,15 @@ export interface Company {
   file_path?: string;
 }
 
+export interface CompanyFile {
+  id?: number;
+  company_id: string;
+  year: number;
+  file_path: string;
+  file_name: string;
+  uploaded_at?: string;
+}
+
 export interface BonusPoint {
   id?: number;
   company_id: string;

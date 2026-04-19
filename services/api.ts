@@ -364,6 +364,36 @@ export function getFileUrl(filePath: string): string {
   return data?.publicUrl || '';
 }
 
+export async function uploadCompanyDoc(file: File, companyId: string, year: number): Promise<string> {
+  const safe = file.name.replace(/[^a-zA-Z0-9._가-힣\-]/g, '_');
+  const path = `${year}/docs/${companyId}/${Date.now()}_${safe}`;
+  const { error } = await supabase.storage.from('startup-companies').upload(path, file, { upsert: true });
+  if (error) throw new Error(`업로드 실패: ${error.message}`);
+  return path;
+}
+
+export async function getCompanyFiles(companyIds: string[]): Promise<import('../types').CompanyFile[]> {
+  if (!companyIds.length) return [];
+  const { data, error } = await supabase
+    .from('startup_company_files')
+    .select('*')
+    .in('company_id', companyIds)
+    .order('uploaded_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addCompanyFile(cf: Omit<import('../types').CompanyFile, 'id' | 'uploaded_at'>): Promise<import('../types').CompanyFile> {
+  const { data, error } = await supabase.from('startup_company_files').insert(cf).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCompanyFile(id: number): Promise<void> {
+  const { error } = await supabase.from('startup_company_files').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── Excel Parsing (Company Import) ───────────────────────────────────────────
 const COL_MAP: Record<string, string> = {
   '과제번호': 'project_no',
@@ -439,7 +469,10 @@ export async function parseCompanyExcel(
             }
           });
 
-          if (!projectNo) { errors.push(`Row ${i + 1}: 과제번호 없음 — 건너뜁니다.`); continue; }
+          if (!projectNo) {
+            projectNo = `AUTO-${year}-${String(parsed.length + 1).padStart(4, '0')}`;
+            co.project_no = projectNo;
+          }
           if (!co.project_title) co.project_title = '';
           if (!co.tech_field) co.tech_field = '';
           if (!co.representative) co.representative = '';

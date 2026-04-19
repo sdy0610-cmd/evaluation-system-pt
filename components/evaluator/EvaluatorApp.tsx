@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria
+  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles
 } from '../../services/api';
-import type { Evaluator, Company, Evaluation, EvalCriterion } from '../../types';
+import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile } from '../../types';
 import { LogOut, X, ExternalLink, CheckCircle, Clock, Star, FileCheck, Printer } from 'lucide-react';
 
 interface CriteriaSection {
@@ -36,6 +36,8 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [docSections, setDocSections] = useState<CriteriaSection[]>([]);
   const [presSections, setPresSections] = useState<CriteriaSection[]>([]);
+  const [companyFiles, setCompanyFiles] = useState<Record<string, CompanyFile[]>>({});
+  const [activeFileIdx, setActiveFileIdx] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Company | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
@@ -59,11 +61,18 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       getEvaluations({ evaluatorId: user.id }),
       getEvalCriteria(user.year, '서류'),
       getEvalCriteria(user.year, '발표'),
-    ]).then(([cos, evs, docC, presC]) => {
-      setCompanies(cos.filter(c => !c.is_excluded));
+    ]).then(async ([cos, evs, docC, presC]) => {
+      const active = cos.filter(c => !c.is_excluded);
+      setCompanies(active);
       setEvaluations(evs);
       setDocSections(buildSections(docC));
       setPresSections(buildSections(presC));
+      if (active.length > 0) {
+        const files = await getCompanyFiles(active.map(c => c.project_no));
+        const fm: Record<string, CompanyFile[]> = {};
+        files.forEach(f => { if (!fm[f.company_id]) fm[f.company_id] = []; fm[f.company_id].push(f); });
+        setCompanyFiles(fm);
+      }
       setLoading(false);
     });
   }, [user]);
@@ -312,7 +321,16 @@ ${selected.recruit_type === '대학발' ? `
   const selectedEvalType = selected ? getActiveEvalType(selected) : null;
   const selectedEv = selected && selectedEvalType ? getEvalForCompany(selected.project_no, selectedEvalType) : undefined;
   const isConfirmed = selectedEv?.is_confirmed;
-  const pdfUrl = selected?.file_path ? getFileUrl(selected.file_path) : '';
+
+  // Build file list for selected company: uploaded docs first, fallback to file_path
+  const selectedFiles: { name: string; url: string }[] = selected
+    ? [
+        ...(companyFiles[selected.project_no] || []).map(f => ({ name: f.file_name, url: getFileUrl(f.file_path) })),
+        ...(selected.file_path && !(companyFiles[selected.project_no]?.length) ? [{ name: '사업계획서', url: getFileUrl(selected.file_path) }] : []),
+      ]
+    : [];
+  const activeIdx = selected ? (activeFileIdx[selected.project_no] ?? 0) : 0;
+  const pdfUrl = selectedFiles[activeIdx]?.url || '';
 
   if (loading) {
     return (
@@ -373,21 +391,40 @@ ${selected.recruit_type === '대학발' ? `
           <div className="flex flex-col bg-white w-full h-full md:flex-row">
             {/* Left: PDF viewer */}
             <div className="flex-1 bg-gray-800 flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-900">
-                <div className="text-white text-sm font-medium">
-                  {selected.project_no} — {selected.representative}
+              <div className="flex flex-col bg-gray-900">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="text-white text-sm font-medium">
+                    {selected.project_no} — {selected.representative}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pdfUrl && (
+                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200">
+                        <ExternalLink size={13} />새 탭에서 열기
+                      </a>
+                    )}
+                    <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-white p-1">
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {pdfUrl && (
-                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200">
-                      <ExternalLink size={13} />새 탭에서 열기
-                    </a>
-                  )}
-                  <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-white p-1">
-                    <X size={18} />
-                  </button>
-                </div>
+                {selectedFiles.length > 1 && (
+                  <div className="flex overflow-x-auto border-t border-gray-700 px-2">
+                    {selectedFiles.map((f, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveFileIdx(prev => ({ ...prev, [selected.project_no]: i }))}
+                        className={`shrink-0 px-3 py-2 text-xs transition-colors border-b-2 ${
+                          activeIdx === i
+                            ? 'text-white border-blue-400'
+                            : 'text-gray-400 border-transparent hover:text-gray-200'
+                        }`}
+                      >
+                        {f.name.length > 24 ? f.name.slice(0, 22) + '…' : f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {pdfUrl ? (
                 <iframe src={pdfUrl} className="flex-1 w-full" title="사업계획서" />
