@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  getEvaluators, getDivisions, upsertEvaluator, deleteEvaluator
+  getEvaluators, getDivisions, upsertEvaluator, deleteEvaluator, upsertDivision
 } from '../../services/api';
 import type { Evaluator, Division } from '../../types';
 import { Plus, Edit2, Trash2, X, Upload, Download } from 'lucide-react';
@@ -60,10 +60,6 @@ export default function EvaluatorsManager({ year }: Props) {
       setError('아이디와 이름을 입력해주세요.');
       return;
     }
-    if (modal?.mode === 'add' && !form.password.trim()) {
-      setError('비밀번호를 입력해주세요.');
-      return;
-    }
     setSaving(true);
     setError('');
     try {
@@ -79,7 +75,11 @@ export default function EvaluatorsManager({ year }: Props) {
         organization: form.organization.trim() || null,
         position: form.position.trim() || null,
       };
-      if (form.password.trim()) payload.password = form.password.trim();
+      if (form.password.trim()) {
+        payload.password = form.password.trim();
+      } else if (modal?.mode === 'add') {
+        payload.password = '1234';
+      }
       await upsertEvaluator(payload);
       setModal(null);
       await load();
@@ -117,7 +117,7 @@ export default function EvaluatorsManager({ year }: Props) {
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportMsg('파싱 중...');
+    setImportMsg('처리 중...');
     try {
       const data = new Uint8Array(await file.arrayBuffer());
       const wb = XLSX.read(data, { type: 'array' });
@@ -129,20 +129,26 @@ export default function EvaluatorsManager({ year }: Props) {
       const headers = rows[0].map((h: any) => String(h ?? '').trim());
       const COL: Record<string, string> = {
         '아이디': 'id', '이름': 'name', '비밀번호': 'password',
-        '분과': 'division_label', '분과라벨': 'division_label', '분과명': 'division_label',
+        '분과': '_div_name', '분과라벨': '_div_label', '분과명': '_div_name',
         '위원순서': 'evaluator_order',
         '이메일': 'email', '연락처': 'phone',
         '소속': 'organization', '직위': 'position',
       };
 
+      // Live division maps — updated as new divisions are created
       const divLabelMap: Record<string, string> = {};
       const divNameMap: Record<string, string> = {};
-      divisions.forEach(d => {
-        divLabelMap[d.division_label.toLowerCase()] = d.id;
-        divNameMap[d.division_name.toLowerCase()] = d.id;
-      });
+      let liveDivisions = [...divisions];
+      const refreshMaps = (divs: Division[]) => {
+        divs.forEach(d => {
+          if (d.division_label) divLabelMap[d.division_label.toLowerCase()] = d.id;
+          divNameMap[d.division_name.toLowerCase()] = d.id;
+        });
+      };
+      refreshMaps(liveDivisions);
 
       let count = 0;
+      let divCreated = 0;
       const errors: string[] = [];
 
       for (let i = 1; i < rows.length; i++) {
@@ -154,23 +160,52 @@ export default function EvaluatorsManager({ year }: Props) {
           if (!field || row[j] == null) return;
           obj[field] = String(row[j]).trim();
         });
-        if (!obj.id || !obj.name) { errors.push(`Row ${i + 1}: 아이디/이름 없음`); continue; }
-        if (obj.division_label) {
-          const q = obj.division_label.trim().toLowerCase();
-          obj.division_id = divLabelMap[q] || divNameMap[q] ||
-            divisions.find(d => d.division_name.toLowerCase().includes(q) || q.includes(d.division_name.toLowerCase()))?.id || null;
-          delete obj.division_label;
+        if (!obj.id || !obj.name) { errors.push(`${i + 1}행: 아이디/이름 없음`); continue; }
+
+        // Resolve division (auto-create if missing)
+        const rawLabel = (obj._div_label || '').trim();
+        const rawName = (obj._div_name || '').trim();
+        delete obj._div_label;
+        delete obj._div_name;
+
+        const searchKey = (rawLabel || rawName).toLowerCase();
+        let divId: string | null = null;
+
+        if (searchKey) {
+          divId = divLabelMap[searchKey] || divNameMap[searchKey] ||
+            liveDivisions.find(d =>
+              d.division_name.toLowerCase().includes(searchKey) ||
+              searchKey.includes(d.division_name.toLowerCase()) ||
+              d.division_label.toLowerCase() === searchKey
+            )?.id || null;
+
+          // Auto-create if still not found
+          if (!divId && rawName) {
+            try {
+              const newDiv = await upsertDivision({ year, division_label: rawLabel || rawName, division_name: rawName });
+              liveDivisions = [...liveDivisions, newDiv];
+              refreshMaps([newDiv]);
+              divId = newDiv.id;
+              divCreated++;
+            } catch (_) { /* proceed without division */ }
+          }
         }
+
+        obj.division_id = divId;
+        if (!obj.password) obj.password = '1234';
         if (obj.evaluator_order) obj.evaluator_order = Number(obj.evaluator_order);
         try {
           await upsertEvaluator(obj);
           count++;
         } catch (err) {
-          errors.push(`Row ${i + 1}: ${(err as Error).message}`);
+          errors.push(`${i + 1}행: ${(err as Error).message}`);
         }
       }
 
-      setImportMsg(`${count}명 등록 완료${errors.length > 0 ? ` (오류 ${errors.length}건)` : ''}`);
+      const msgs = [`${count}명 등록 완료`];
+      if (divCreated > 0) msgs.push(`분과 ${divCreated}개 자동 생성`);
+      if (errors.length > 0) msgs.push(`오류 ${errors.length}건`);
+      setImportMsg(msgs.join(' · '));
       await load();
     } catch (err) {
       setImportMsg(`오류: ${(err as Error).message}`);
@@ -296,7 +331,7 @@ export default function EvaluatorsManager({ year }: Props) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  비밀번호 {modal.mode === 'edit' && <span className="text-gray-400 font-normal">(비워두면 변경 안함)</span>}
+                  비밀번호 <span className="text-gray-400 font-normal">{modal.mode === 'add' ? '(비워두면 1234)' : '(비워두면 변경 안함)'}</span>
                 </label>
                 <input
                   type="password"
