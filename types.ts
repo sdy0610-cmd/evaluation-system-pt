@@ -125,6 +125,7 @@ export type AdminView =
   | 'evaluators'
   | 'companies'
   | 'score-review'
+  | 'print-center'
   | 'report'
   | 'criteria'
   | 'settings';

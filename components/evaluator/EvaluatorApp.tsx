@@ -112,6 +112,88 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     setSubmitMsg('');
   }
 
+  function handlePrintAllForms() {
+    const activeSections = presSections.length > 0 ? presSections : docSections;
+    const win = window.open('', '_blank');
+    if (!win) return;
+
+    const pages = companies.map(co => {
+      const evalType = getActiveEvalType(co);
+      if (!evalType) return '';
+      const ev = getEvalForCompany(co.project_no, evalType);
+      const ss = ev?.sub_scores as Record<string, number> | undefined;
+      const sc = ev ? (ev.adjusted_score ?? ev.score ?? 0) : 0;
+      const sections = evalType === '서류' ? docSections : presSections;
+
+      const scoreRows = sections.length > 0
+        ? sections.flatMap(sec =>
+            sec.items.map((item, ii) => {
+              const secCell = ii === 0
+                ? `<td class="sec-cell" rowspan="${sec.items.length}">${sec.section}. ${sec.name}<br/><span style="font-size:10px">(${sec.total}점)</span></td>`
+                : '';
+              return `<tr>${secCell}<td class="item-left">${item.key}. ${item.name}</td><td class="pts">${item.max}</td><td class="pts">${ss?.[item.key] !== undefined ? ss[item.key] : ''}</td></tr>`;
+            })
+          ).join('')
+        : `<tr><td colspan="3">총점</td><td class="pts">${sc}</td></tr>`;
+
+      return `<div class="page">
+  <div class="title-box">
+    <div class="sub">「${user.year}년 창업중심대학 지원사업」</div>
+    <div class="main">(예비)창업기업 선정평가 ${evalType}평가표</div>
+  </div>
+  <table class="meta">
+    <tr><td class="label" width="120">지 원 유 형</td><td colspan="3">${co.recruit_type || ''}</td></tr>
+    <tr><td class="label">주 관 기 관 명</td><td width="200">성균관대학교</td><td class="label" width="100">과 제 번 호</td><td>${co.project_no}</td></tr>
+    <tr><td class="label">아 이 템 명</td><td colspan="3">${co.project_title}</td></tr>
+    <tr><td class="label">분 과 구 분</td><td colspan="3">${user.division?.division_label || ''} (${user.division?.division_name || ''})</td></tr>
+  </table>
+  <table class="score-tbl">
+    <thead><tr><th width="160">세부평가</th><th>평가내용</th><th width="50">배점</th><th width="60">점수</th></tr></thead>
+    <tbody>
+      ${scoreRows}
+      <tr class="total-row"><td colspan="3" style="text-align:right;font-weight:bold">최 종 점 수</td><td class="pts" style="font-weight:bold">${ev ? sc : ''}</td></tr>
+    </tbody>
+  </table>
+  <table class="opinion-tbl">
+    <tr><th>평 가 의 견</th></tr>
+    <tr><td class="opinion-area">${ev?.comment || ''}</td></tr>
+    ${co.recruit_type === '대학발' ? `<tr><td style="padding:4px 8px;font-size:10px;color:#555">※ 지역주력산업 일치 여부: ${ev?.region_match === true ? '일치' : ev?.region_match === false ? '불일치' : '　　'} &nbsp;&nbsp; 의견: ${ev?.region_match_comment || ''}</td></tr>` : ''}
+  </table>
+  <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
+  <div class="confirm-date">${user.year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
+  <div class="sig-line">소속: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
+  <div class="sig-bottom">주관기관장 귀하</div>
+</div>`;
+    }).join('\n');
+
+    win.document.write(`<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>${user.year}년도 ${user.division?.division_name} 평가표</title>
+<style>
+  body{font-family:'Malgun Gothic',sans-serif;font-size:11px;margin:0;padding:0}
+  @page{size:A4 portrait;margin:15mm 12mm}
+  .page{page-break-after:always;padding:0}.page:last-child{page-break-after:auto}
+  .title-box{text-align:center;border:2px solid #333;padding:10px;margin-bottom:10px}
+  .title-box .sub{font-size:11px;color:#555;margin-bottom:4px}.title-box .main{font-size:18px;font-weight:bold}
+  table{width:100%;border-collapse:collapse;margin-bottom:8px}
+  th,td{border:1px solid #888;padding:5px 7px;vertical-align:middle}
+  th{background:#f2f2f2;font-weight:600;text-align:center}
+  td.label{background:#f5f5f5;font-weight:600;text-align:center;white-space:nowrap}
+  td.sec-cell{background:#fafafa;font-weight:600;text-align:center;font-size:10.5px}
+  td.item-left{text-align:left;font-size:10.5px}td.pts{text-align:center}
+  td.opinion-area{min-height:80px;height:80px;padding:8px;text-align:left;vertical-align:top}
+  tr.total-row td{background:#e8f0fe}
+  .confirm{margin-top:14px;font-size:10.5px;line-height:1.6}
+  .confirm-date{margin-top:8px;font-size:11px}.sig-line{margin-top:12px;font-size:11px}
+  .sig-bottom{margin-top:10px;text-align:right;font-size:11px}
+  @media print{.no-print{display:none}}
+</style></head><body>
+<button class="no-print" onclick="window.print()" style="margin:10px;padding:8px 20px;background:#1a56db;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">인쇄</button>
+${pages}
+</body></html>`);
+    win.document.close();
+  }
+
   function handlePrintEvalForm() {
     if (!selected || !selectedEv) return;
     const sc = selectedEv.adjusted_score ?? selectedEv.score ?? 0;
@@ -269,6 +351,12 @@ ${selected.recruit_type === '대학발' ? `
               <div className="h-2 bg-blue-600 rounded-full transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
+          <button
+            onClick={handlePrintAllForms}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+          >
+            <Printer size={15} />분과 전체 인쇄
+          </button>
           <button
             onClick={onLogout}
             className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"

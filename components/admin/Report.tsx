@@ -213,7 +213,7 @@ ${divEvs.map(ev => {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-2">채점표 인쇄</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">평가표 인쇄</h3>
           <div className="flex gap-2 mb-3 flex-wrap">
             <select
               value={printDivId}
