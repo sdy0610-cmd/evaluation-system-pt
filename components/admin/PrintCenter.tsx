@@ -102,6 +102,7 @@ export default function PrintCenter({ year, user }: Props) {
   const [selectedDivId, setSelectedDivId] = useState('');
   const [evalType, setEvalType] = useState<EvalTypeTab>('발표');
   const [companyEvalFilter, setCompanyEvalFilter] = useState<Record<string, string>>({});
+  const [selectedEvalIds, setSelectedEvalIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const [tplModalOpen, setTplModalOpen] = useState(false);
@@ -144,8 +145,10 @@ export default function PrintCenter({ year, user }: Props) {
         ? await getEvaluations({ companyIds: activeCos.map(c => c.project_no) })
         : [];
       setCompanies(activeCos);
-      setEvaluators(evs.filter(e => e.division_id === selectedDivId && e.role !== 'admin')
-        .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0)));
+      const divEvs = evs.filter(e => e.division_id === selectedDivId && e.role !== 'admin')
+        .sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+      setEvaluators(divEvs);
+      setSelectedEvalIds(new Set(divEvs.map(e => e.id)));
       setEvaluations(allEvals.filter(ev => ev.evaluation_type === evalType));
     });
   }, [selectedDivId, evalType, year]);
@@ -161,8 +164,8 @@ export default function PrintCenter({ year, user }: Props) {
       evalMap[ev.company_id][ev.evaluator_id] = ev;
     });
 
-    const pages = cos.flatMap(co =>
-      evs.map(ev => {
+    const pages = evs.flatMap(ev =>
+      cos.map(co => {
         const evaluation = evalMap[co.project_no]?.[ev.id];
         const ss = evaluation?.sub_scores as Record<string, number> | undefined;
         const finalScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score ?? 0) : 0;
@@ -306,7 +309,8 @@ ${pages.join('\n')}
     if (modal.company) {
       doc.write(buildPrintHtml([modal.company], getEvsForCompany(modal.company.project_no), dateStr));
     } else {
-      doc.write(buildPrintHtml(companies, evaluators, dateStr));
+      const filteredEvs = evaluators.filter(e => selectedEvalIds.has(e.id));
+      doc.write(buildPrintHtml(companies, filteredEvs.length > 0 ? filteredEvs : evaluators, dateStr));
     }
     doc.close();
     setTimeout(() => iframe.contentWindow?.print(), 300);
@@ -397,7 +401,36 @@ ${pages.join('\n')}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">총 {companies.length}개 기업 · 평가위원 {evaluators.length}명</p>
           </div>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
+            {evaluators.length > 0 && (
+              <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedEvalIds.size === evaluators.length}
+                    onChange={e => setSelectedEvalIds(e.target.checked ? new Set(evaluators.map(ev => ev.id)) : new Set())}
+                    className="w-3.5 h-3.5 accent-blue-600"
+                  />
+                  전체
+                </label>
+                <div className="w-px h-4 bg-gray-300" />
+                {evaluators.map(ev => (
+                  <label key={ev.id} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={selectedEvalIds.has(ev.id)}
+                      onChange={e => setSelectedEvalIds(prev => {
+                        const next = new Set(prev);
+                        e.target.checked ? next.add(ev.id) : next.delete(ev.id);
+                        return next;
+                      })}
+                      className="w-3.5 h-3.5 accent-blue-600"
+                    />
+                    위원{ev.evaluator_order}
+                  </label>
+                ))}
+              </div>
+            )}
             <button
               onClick={openModal}
               className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -407,9 +440,10 @@ ${pages.join('\n')}
             {companies.length > 0 && evaluators.length > 0 && (
               <button
                 onClick={printAll}
-                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                disabled={selectedEvalIds.size === 0}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                <Printer size={15} />전체 인쇄 ({companies.length * evaluators.length}매)
+                <Printer size={15} />전체 인쇄 ({companies.length * selectedEvalIds.size}매)
               </button>
             )}
           </div>
