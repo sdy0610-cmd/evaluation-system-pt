@@ -63,11 +63,12 @@ export default function App() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="px-8 py-8 space-y-5">
+          <form onSubmit={handleLogin} autoComplete="off" className="px-8 py-8 space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">아이디</label>
               <input
                 type="text"
+                autoComplete="off"
                 value={id}
                 onChange={e => setId(e.target.value)}
                 autoFocus
@@ -79,7 +80,7 @@ export default function App() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">비밀번호</label>
               <input
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="비밀번호"
