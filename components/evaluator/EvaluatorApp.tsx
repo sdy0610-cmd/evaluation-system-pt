@@ -742,7 +742,7 @@ ${extraOpHtml}
                                       type="number"
                                       min="0"
                                       max={item.max}
-                                      step="0.1"
+                                      step="1"
                                       value={subScores[item.key] ?? ''}
                                       onChange={e => {
                                         const v = e.target.value;
@@ -774,7 +774,7 @@ ${extraOpHtml}
                             type="number"
                             min="0"
                             max="100"
-                            step="0.1"
+                            step="1"
                             value={score}
                             onChange={e => setScore(e.target.value)}
                             placeholder="0~100"
