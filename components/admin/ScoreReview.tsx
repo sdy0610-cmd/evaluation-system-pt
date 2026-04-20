@@ -97,6 +97,13 @@ export default function ScoreReview({ year, user }: Props) {
     }
   }
 
+  const maxEvalCount = useMemo(() => {
+    if (selectedDivId) return evaluators.length;
+    return allEvaluators.length > 0
+      ? Math.max(...allEvaluators.map(e => e.evaluator_order || 0))
+      : 0;
+  }, [selectedDivId, evaluators, allEvaluators]);
+
   const rows = useMemo<ScoreRow[]>(() => {
     const evalMap: Record<string, Record<string, Evaluation>> = {};
     evaluations.forEach(ev => {
@@ -454,20 +461,33 @@ export default function ScoreReview({ year, user }: Props) {
                       </span>
                     </th>
                   ))}
-                  {selectedDivId && evaluators.map(ev => (
-                    <th
-                      key={ev.id}
-                      style={{ width: 56, minWidth: 56 }}
-                      className={`px-1 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors tracking-wide ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-300' : 'text-slate-200'}`}
-                      onClick={() => toggleSort(`ev-${ev.evaluator_order}`)}
-                    >
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="font-bold">위원{ev.evaluator_order}</span>
-                        <span className="font-normal text-slate-400 truncate w-full text-center" style={{ maxWidth: 52 }} title={ev.name}>{ev.name}</span>
-                        {sortKey === `ev-${ev.evaluator_order}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
-                      </div>
-                    </th>
-                  ))}
+                  {selectedDivId
+                    ? evaluators.map(ev => (
+                        <th
+                          key={ev.id}
+                          style={{ width: 56, minWidth: 56 }}
+                          className={`px-1 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors tracking-wide ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-300' : 'text-slate-200'}`}
+                          onClick={() => toggleSort(`ev-${ev.evaluator_order}`)}
+                        >
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="font-bold">위원{ev.evaluator_order}</span>
+                            <span className="font-normal text-slate-400 truncate w-full text-center" style={{ maxWidth: 52 }} title={ev.name}>{ev.name}</span>
+                            {sortKey === `ev-${ev.evaluator_order}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
+                          </div>
+                        </th>
+                      ))
+                    : Array.from({ length: maxEvalCount }).map((_, i) => (
+                        <th
+                          key={`all-ev-${i}`}
+                          style={{ width: 48, minWidth: 48 }}
+                          className={`px-1 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors tracking-wide ${sortKey === `ev-${i + 1}` ? 'text-blue-300' : 'text-slate-200'}`}
+                          onClick={() => toggleSort(`ev-${i + 1}`)}
+                        >
+                          <span className="font-bold">위원{i + 1}</span>
+                          {sortKey === `ev-${i + 1}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
+                        </th>
+                      ))
+                  }
                   {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
                     <th key={`pad-${i}`} style={{ width: 56, minWidth: 56 }} className="px-1 py-2.5 text-center text-xs font-semibold text-slate-500">위원{evaluators.length + i + 1}</th>
                   ))}
@@ -558,13 +578,14 @@ export default function ScoreReview({ year, user }: Props) {
                       </td>
                       <td className="px-2 py-3 text-gray-600 text-xs" title={co.project_title}>{co.project_title}</td>
 
-                      {selectedDivId && (() => {
+                      {(() => {
                         const validScores = row.scores.filter((s): s is number => s !== null && s !== undefined);
                         const hasMinMax = validScores.length >= 5;
                         const minScore = hasMinMax ? Math.min(...validScores) : null;
                         const maxScore = hasMinMax ? Math.max(...validScores) : null;
-                        return evaluators.map((ev, evIdx) => {
-                          const evaluation = row.evals[evIdx];
+                        const colCount = selectedDivId ? evaluators.length : maxEvalCount;
+                        return Array.from({ length: colCount }).map((_, evIdx) => {
+                          const evaluation = row.evals[evIdx] ?? null;
                           const hasAdj = evaluation && evaluation.adjusted_score !== null && evaluation.adjusted_score !== undefined;
                           const displayScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score) : null;
                           const origScore = evaluation?.score;
@@ -572,18 +593,19 @@ export default function ScoreReview({ year, user }: Props) {
                           const isMax = hasMinMax && displayScore !== null && displayScore === maxScore;
                           return (
                             <td
-                              key={ev.id}
-                              className={`px-3 py-3 text-center ${
-                                !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
+                              key={`ev-cell-${evIdx}`}
+                              style={!selectedDivId ? { width: 48, minWidth: 48 } : undefined}
+                              className={`px-1 py-3 text-center ${
+                                selectedDivId && !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
                               } ${evaluation?.is_knockout ? 'bg-red-100' : ''}`}
-                              onClick={() => evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
+                              onClick={() => selectedDivId && evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
                             >
                               {displayScore !== null && displayScore !== undefined ? (
                                 <div className="space-y-0.5">
                                   {hasAdj && (
                                     <div className="text-xs text-gray-400 line-through">{origScore}</div>
                                   )}
-                                  <div className={`font-medium text-sm ${
+                                  <div className={`font-medium text-xs ${
                                     isMax ? 'text-blue-600' : isMin ? 'text-red-500' : hasAdj ? 'text-blue-700' : 'text-gray-800'
                                   }`}>
                                     {displayScore}
@@ -598,7 +620,7 @@ export default function ScoreReview({ year, user }: Props) {
                       })()}
 
                       {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
-                        <td key={`pad-${i}`} className="px-3 py-3 text-center text-gray-300 text-xs">-</td>
+                        <td key={`pad-${i}`} className="px-1 py-3 text-center text-gray-300 text-xs">-</td>
                       ))}
 
                       <td className="px-3 py-3 text-center bg-blue-50 font-semibold text-blue-800">
