@@ -423,18 +423,19 @@ export default function ScoreReview({ year, user }: Props) {
                   {selectedDivId && evaluators.map(ev => (
                     <th
                       key={ev.id}
-                      className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      style={{ width: 56, minWidth: 56 }}
+                      className={`px-1 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
                       onClick={() => toggleSort(`ev-${ev.evaluator_order}`)}
                     >
                       <div className="flex flex-col items-center gap-0.5">
-                        <span>위원{ev.evaluator_order}</span>
-                        <span className="font-normal text-gray-400">{ev.name}</span>
+                        <span className="font-bold">위원{ev.evaluator_order}</span>
+                        <span className="font-normal text-gray-400 truncate w-full text-center" style={{ maxWidth: 52 }} title={ev.name}>{ev.name}</span>
                         {sortKey === `ev-${ev.evaluator_order}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                       </div>
                     </th>
                   ))}
                   {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
-                    <th key={`pad-${i}`} className="px-3 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
+                    <th key={`pad-${i}`} style={{ width: 56, minWidth: 56 }} className="px-1 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
                   ))}
                   <th
                     className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'avg' ? 'text-blue-800' : 'text-blue-600'}`}
