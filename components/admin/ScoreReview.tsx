@@ -42,6 +42,7 @@ export default function ScoreReview({ year, user }: Props) {
   const [bonusSaving, setBonusSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [opinionModal, setOpinionModal] = useState<{ company: Company; evals: (Evaluation | null)[] } | null>(null);
   const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
   const [sortKey, setSortKey] = useState<string>('final');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -493,6 +494,7 @@ export default function ScoreReview({ year, user }: Props) {
                   {[
                     { key: 'knockout', label: '과락' },
                     { key: 'result',   label: '결과' },
+                    { key: 'opinion',  label: '의견' },
                     { key: 'confirmed', label: '확정' },
                   ].map(col => (
                     <th key={col.key}
@@ -649,6 +651,12 @@ export default function ScoreReview({ year, user }: Props) {
                         </select>
                       </td>
                       <td className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => setOpinionModal({ company: co, evals: row.evals })}
+                          className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+                        >의견</button>
+                      </td>
+                      <td className="px-3 py-3 text-center">
                         {row.allConfirmed ? (
                           <span className="inline-flex items-center justify-center w-5 h-5 bg-green-500 text-white rounded-full">
                             <Check size={12} />
@@ -781,6 +789,51 @@ export default function ScoreReview({ year, user }: Props) {
               <button onClick={handleSaveBonus} disabled={bonusSaving} className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
                 {bonusSaving ? '저장 중...' : '저장'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Opinion Modal */}
+      {opinionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-xs text-gray-400">{opinionModal.company.project_no}</p>
+                <h3 className="font-bold text-gray-900">{opinionModal.company.project_title}</h3>
+              </div>
+              <button onClick={() => setOpinionModal(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              {evaluators.map((ev, i) => {
+                const evl = opinionModal.evals[i];
+                const score = evl ? (evl.adjusted_score ?? evl.score) : null;
+                const xo = (evl?.extra_opinions as Record<string, string>) || {};
+                return (
+                  <div key={ev.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500">위원{ev.evaluator_order}</span>
+                        <span className="text-sm font-semibold text-gray-800">{ev.name}</span>
+                      </div>
+                      <span className={`text-sm font-bold ${score !== null ? 'text-blue-700' : 'text-gray-300'}`}>
+                        {score !== null ? `${score}점` : '미평가'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2 min-h-[40px] whitespace-pre-wrap">
+                      {evl?.comment || <span className="text-gray-300 text-xs">평가의견 없음</span>}
+                    </div>
+                    {(xo['주력산업_일치여부'] || xo['주력산업_의견']) && (
+                      <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-sm">
+                        <span className="font-semibold text-indigo-700">주력산업 일치여부: </span>
+                        <span className="text-indigo-600">{xo['주력산업_일치여부'] || '-'}</span>
+                        {xo['주력산업_의견'] && <span className="text-gray-600 ml-2">{xo['주력산업_의견']}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
