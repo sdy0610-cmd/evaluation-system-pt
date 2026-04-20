@@ -68,6 +68,15 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [printDate, setPrintDate] = useState(todayStr);
 
   useEffect(() => {
+    if (selected) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [selected]);
+
+  useEffect(() => {
     if (!user.division_id) { setLoading(false); return; }
     setLoading(true);
     // All independent queries in parallel
