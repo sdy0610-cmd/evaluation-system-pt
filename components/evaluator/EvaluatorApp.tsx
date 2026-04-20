@@ -138,7 +138,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       if (ev?.sub_scores && Object.keys(ev.sub_scores).length > 0) {
         const ss = ev.sub_scores as Record<string, number>;
         setSubScores(ss);
-        const total = Object.values(ss).reduce((a, b) => a + b, 0);
+        const total = Math.round(Object.values(ss).reduce((a, b) => a + b, 0) * 10) / 10;
         setScore(String(total));
       } else {
         setSubScores({});
@@ -333,10 +333,10 @@ ${extraOpHtml}
   }
 
   function setSubScore(key: string, val: number, max: number) {
-    const clamped = Math.min(max, Math.max(0, val));
+    const clamped = Math.round(Math.min(max, Math.max(0, val)) * 10) / 10;
     setSubScores(prev => {
       const next = { ...prev, [key]: clamped };
-      const total = Object.values(next).reduce((a, b) => a + b, 0);
+      const total = Math.round(Object.values(next).reduce((a, b) => a + b, 0) * 10) / 10;
       setScore(String(total));
       return next;
     });
@@ -720,7 +720,7 @@ ${extraOpHtml}
                       return activeSections.length > 0 ? (
                       <div className="space-y-4">
                         {activeSections.map(section => {
-                          const sectionTotal = section.items.reduce((sum, it) => sum + (subScores[it.key] ?? 0), 0);
+                          const sectionTotal = Math.round(section.items.reduce((sum, it) => sum + (subScores[it.key] ?? 0), 0) * 10) / 10;
                           return (
                             <div key={section.section} className="border border-gray-200 rounded-xl overflow-hidden">
                               <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
