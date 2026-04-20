@@ -51,15 +51,31 @@ export default function App() {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
-          <div className="bg-blue-600 px-8 py-8 text-white">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-lg">🏢</div>
-              <div>
-                <p className="text-xs text-blue-200 font-medium uppercase tracking-wider">창업중심대학</p>
-                <h1 className="text-lg font-bold">참여기업 선발 시스템</h1>
+          <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 px-8 py-9 text-white overflow-hidden">
+            {/* decorative circles */}
+            <div className="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full" />
+            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-white/5 rounded-full" />
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-5">
+                <div className="w-1 h-1 bg-blue-300 rounded-full" />
+                <p className="text-xs text-blue-200 font-semibold tracking-widest uppercase">Sungkyunkwan University</p>
+              </div>
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-12 h-12 bg-white/15 border border-white/20 rounded-2xl flex items-center justify-center shadow-inner">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3L2 9l10 6 10-6-10-6zM2 17l10 6 10-6M2 13l10 6 10-6" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-200 leading-none mb-1">성균관대 창업지원단</p>
+                  <h1 className="text-xl font-extrabold tracking-tight leading-tight">창업중심대학 평가시스템</h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-px bg-blue-400/60" />
+                <p className="text-xs text-blue-200">평가위원 또는 관리자로 로그인하세요.</p>
               </div>
             </div>
-            <p className="text-sm text-blue-200">평가위원 또는 관리자로 로그인하세요.</p>
           </div>
 
           {/* Form */}
