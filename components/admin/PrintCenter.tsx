@@ -107,6 +107,9 @@ export default function PrintCenter({ year, user }: Props) {
   const [tplModalOpen, setTplModalOpen] = useState(false);
   const [template, setTemplate] = useState<PrintTemplate>(loadTemplate);
   const [draft, setDraft] = useState<PrintTemplate>(loadTemplate);
+  const todayStr = () => new Date().toISOString().slice(0, 10);
+  const [printDate, setPrintDate] = useState(todayStr);
+  const [printDateModal, setPrintDateModal] = useState<{ company?: Company } | null>(null);
 
   function setDraftField<K extends keyof PrintTemplate>(key: K, value: PrintTemplate[K]) {
     setDraft(prev => ({ ...prev, [key]: value }));
@@ -146,7 +149,7 @@ export default function PrintCenter({ year, user }: Props) {
     });
   }, [selectedDivId, evalType, year]);
 
-  function buildPrintHtml(cos: Company[], evs: Evaluator[]): string {
+  function buildPrintHtml(cos: Company[], evs: Evaluator[], dateStr?: string): string {
     const tpl = template;
     const sections = evalType === '서류' ? docSections : presSections;
     const div = divisions.find(d => d.id === selectedDivId);
@@ -232,7 +235,7 @@ export default function PrintCenter({ year, user }: Props) {
     ${univNote}
   </table>
   <div class="confirm">${tpl.confirmText}</div>
-  <div class="confirm-date">${year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
+  <div class="confirm-date">${dateStr ? dateStr.replace(/-/g, '년 ').replace(/년 (\d+)년 (\d+)$/, '년 $1월 $2일') : `${year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일`}</div>
   <div class="sig-line">소속: ${ev.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${ev.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${ev.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">${tpl.footer}</div>
 </div>`;
@@ -281,16 +284,26 @@ ${pages.join('\n')}
   }
 
   function printCompany(co: Company) {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(buildPrintHtml([co], getEvsForCompany(co.project_no)));
-    win.document.close();
+    setPrintDate(todayStr());
+    setPrintDateModal({ company: co });
   }
 
   function printAll() {
+    setPrintDate(todayStr());
+    setPrintDateModal({});
+  }
+
+  function doPrint(dateStr: string) {
+    const modal = printDateModal;
+    setPrintDateModal(null);
+    if (!modal) return;
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(buildPrintHtml(companies, evaluators));
+    if (modal.company) {
+      win.document.write(buildPrintHtml([modal.company], getEvsForCompany(modal.company.project_no), dateStr));
+    } else {
+      win.document.write(buildPrintHtml(companies, evaluators, dateStr));
+    }
     win.document.close();
   }
 
@@ -316,6 +329,24 @@ ${pages.join('\n')}
 
   return (
     <div className="p-8">
+      {printDateModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80">
+            <h3 className="font-bold text-gray-900 mb-1">인쇄 날짜 선택</h3>
+            <p className="text-xs text-gray-500 mb-4">평가표에 기재할 날짜를 선택하세요.</p>
+            <input
+              type="date"
+              value={printDate}
+              onChange={e => setPrintDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setPrintDateModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={() => doPrint(printDate)} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">인쇄</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">평가표 인쇄</h1>
