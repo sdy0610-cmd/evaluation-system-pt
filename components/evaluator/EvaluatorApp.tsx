@@ -894,8 +894,8 @@ ${extraOpHtml}
                     : 'border-gray-200 bg-white hover:border-blue-300'
                 }`}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <span className="font-mono text-xs text-gray-400">{co.project_no}</span>
+                <div className="flex items-start justify-between mb-2">
+                  <span className="font-mono text-sm font-bold text-blue-600 tracking-wide">{co.project_no}</span>
                   <div className="flex items-center gap-1">
                     {co.is_legend && <Star size={13} className="text-amber-500" />}
                     {co.is_doc_exempt && <FileCheck size={13} className="text-purple-500" />}
@@ -916,8 +916,8 @@ ${extraOpHtml}
                 </div>
                 <div className="font-semibold text-gray-900 text-sm mb-1 leading-snug">{co.project_title}</div>
                 <div className="text-xs text-gray-500 mb-2">{co.representative}</div>
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1.5 flex-wrap">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex gap-1.5 flex-wrap min-w-0">
                     {co.age_group && (
                       <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{co.age_group}</span>
                     )}
@@ -936,9 +936,9 @@ ${extraOpHtml}
                       }`}>{evalType}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {ev && ev.score !== undefined && (
-                      <span className="font-bold text-blue-700">{ev.adjusted_score ?? ev.score}점</span>
+                      <span className="font-bold text-blue-700 text-base whitespace-nowrap">{ev.adjusted_score ?? ev.score}점</span>
                     )}
                     <button
                       onClick={e => handlePrintSingleCard(e, co)}
