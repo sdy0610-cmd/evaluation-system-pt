@@ -426,15 +426,15 @@ export default function ScoreReview({ year, user }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-2 py-3 text-center w-8">
+                <tr className="bg-slate-700">
+                  <th className="px-2 py-2.5 text-center w-8">
                     <input type="checkbox"
                       checked={sortedRows.length > 0 && selected.size === sortedRows.length}
                       onChange={toggleSelectAll}
-                      className="w-3.5 h-3.5 rounded cursor-pointer accent-blue-600"
+                      className="w-3.5 h-3.5 rounded cursor-pointer accent-blue-400"
                     />
                   </th>
-                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 w-8">순위</th>
+                  <th className="px-2 py-2.5 text-center text-xs font-semibold text-slate-200 tracking-wide w-8">순위</th>
                   {[
                     { key: 'project_no', label: '과제번호', cls: 'w-24 text-left' },
                     { key: 'division',   label: '분과',   cls: 'w-28 text-left' },
@@ -445,7 +445,7 @@ export default function ScoreReview({ year, user }: Props) {
                     { key: 'project_title',  label: '과제명', cls: 'min-w-48 text-left' },
                   ].map(col => (
                     <th key={col.key}
-                      className={`px-2 py-3 text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors whitespace-nowrap ${col.cls} ${sortKey === col.key ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      className={`px-2 py-2.5 text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors whitespace-nowrap tracking-wide ${col.cls} ${sortKey === col.key ? 'text-blue-300' : 'text-slate-200'}`}
                       onClick={() => toggleSort(col.key)}
                     >
                       <span className="inline-flex items-center gap-0.5">
@@ -458,39 +458,39 @@ export default function ScoreReview({ year, user }: Props) {
                     <th
                       key={ev.id}
                       style={{ width: 56, minWidth: 56 }}
-                      className={`px-1 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      className={`px-1 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors tracking-wide ${sortKey === `ev-${ev.evaluator_order}` ? 'text-blue-300' : 'text-slate-200'}`}
                       onClick={() => toggleSort(`ev-${ev.evaluator_order}`)}
                     >
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="font-bold">위원{ev.evaluator_order}</span>
-                        <span className="font-normal text-gray-400 truncate w-full text-center" style={{ maxWidth: 52 }} title={ev.name}>{ev.name}</span>
+                        <span className="font-normal text-slate-400 truncate w-full text-center" style={{ maxWidth: 52 }} title={ev.name}>{ev.name}</span>
                         {sortKey === `ev-${ev.evaluator_order}` && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                       </div>
                     </th>
                   ))}
                   {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
-                    <th key={`pad-${i}`} style={{ width: 56, minWidth: 56 }} className="px-1 py-3 text-center text-xs font-medium text-gray-400">위원{evaluators.length + i + 1}</th>
+                    <th key={`pad-${i}`} style={{ width: 56, minWidth: 56 }} className="px-1 py-2.5 text-center text-xs font-semibold text-slate-500">위원{evaluators.length + i + 1}</th>
                   ))}
                   <th
-                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'avg' ? 'text-blue-800' : 'text-blue-600'}`}
+                    className={`px-3 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors whitespace-nowrap tracking-wide ${sortKey === 'avg' ? 'text-blue-300' : 'text-amber-300'}`}
                     onClick={() => toggleSort('avg')}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       평점{sortKey === 'avg' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
-                  <th className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap ${sortKey === 'bonus' ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`} onClick={() => toggleSort('bonus')}>
+                  <th className={`px-3 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors whitespace-nowrap tracking-wide ${sortKey === 'bonus' ? 'text-blue-300' : 'text-slate-200'}`} onClick={() => toggleSort('bonus')}>
                     <span className="inline-flex items-center gap-0.5">가점{sortKey === 'bonus' ? (sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />) : null}</span>
                   </th>
                   <th
-                    className={`px-3 py-3 text-center text-xs font-medium bg-blue-50 cursor-pointer select-none hover:bg-blue-100 transition-colors whitespace-nowrap ${sortKey === 'final' ? 'text-blue-900' : 'text-blue-700'}`}
+                    className={`px-3 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors whitespace-nowrap tracking-wide ${sortKey === 'final' ? 'text-blue-300' : 'text-emerald-300'}`}
                     onClick={() => toggleSort('final')}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       최종{sortKey === 'final' && (sortDir === 'desc' ? <ChevronDown size={10} /> : <ChevronUp size={10} />)}
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 whitespace-nowrap">등급</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-200 whitespace-nowrap tracking-wide">등급</th>
                   {[
                     { key: 'knockout', label: '과락' },
                     { key: 'result',   label: '결과' },
@@ -498,7 +498,7 @@ export default function ScoreReview({ year, user }: Props) {
                     { key: 'confirmed', label: '확정' },
                   ].map(col => (
                     <th key={col.key}
-                      className={`px-3 py-3 text-center text-xs font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap ${col.key === 'result' ? 'min-w-20' : ''} ${sortKey === col.key ? 'text-blue-700 bg-blue-50' : 'text-gray-500'}`}
+                      className={`px-3 py-2.5 text-center text-xs font-semibold cursor-pointer select-none hover:bg-slate-600 transition-colors whitespace-nowrap tracking-wide ${col.key === 'result' ? 'min-w-20' : ''} ${sortKey === col.key ? 'text-blue-300' : 'text-slate-200'}`}
                       onClick={() => toggleSort(col.key)}
                     >
                       <span className="inline-flex items-center gap-0.5">
