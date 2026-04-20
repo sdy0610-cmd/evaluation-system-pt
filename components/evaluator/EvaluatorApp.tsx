@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+
+const PRES_ORDER: Record<string, number> = {"20401269":4,"20402754":12,"20403700":9,"20403842":3,"20404406":9,"20404581":1,"20404954":2,"20405890":5,"20406455":3,"20406463":10,"20406894":1,"20407665":10,"20408825":10,"20408877":1,"20409229":4,"20409931":6,"20410202":3,"20410732":3,"20410913":11,"20412024":5,"20412297":4,"20412385":3,"20412766":1,"20413111":2,"20413200":12,"20413444":3,"20413666":8,"20413825":4,"20413968":1,"20413981":12,"20414096":1,"20414167":2,"20414230":13,"20414308":11,"20414625":1,"20414728":11,"20414883":3,"20414899":6,"20415322":13,"20415487":9,"20415499":8,"20415506":8,"20415588":1,"20415684":10,"20415817":3,"20415837":5,"20415839":2,"20415849":9,"20415851":3,"20415870":10,"20416056":3,"20416188":1,"20416208":11,"20416443":5,"20416502":10,"20416542":8,"20416668":11,"20416947":8,"20417238":8,"20417471":6,"20417534":2,"20417596":9,"20417599":2,"20417617":10,"20417675":5,"20417694":6,"20417697":10,"20417774":6,"20417896":7,"20418037":6,"20418175":4,"20418401":7,"20418458":11,"20418464":6,"20418471":11,"20418598":12,"20418609":8,"20418623":9,"20418691":3,"20418733":9,"20418814":1,"20418822":7,"20418903":8,"20419110":10,"20419166":12,"20419189":8,"20419192":9,"20419206":9,"20419317":4,"20419372":2,"20419387":11,"20419388":3,"20420108":6,"20420127":4,"20420270":8,"20420569":7,"20421734":4,"20421742":12,"20421952":9,"20422010":11,"20422710":4,"20423046":4,"20423136":4,"20423461":2,"20423821":10,"20424315":1,"20424483":4,"20424497":2,"20424540":8,"20424544":10,"20424587":2,"20424619":1,"20424645":3,"20424775":3,"20424839":6,"20424850":10,"20425290":8,"20425350":12,"20425527":11,"20425601":2,"20425607":6,"20425675":7,"20425711":2,"20425812":7,"20425817":3,"20426082":9,"20426148":1,"20426411":9,"20426658":7,"20426671":12,"20426680":11,"20426887":10,"20426937":8,"20427103":5,"20427459":12,"20427486":10,"20427490":10,"20427515":5,"20427563":5,"20427569":4,"20427590":10,"20428037":3,"20428115":9,"20428133":7,"20428258":7,"20428259":2,"20428287":8,"20428312":7,"20428346":2,"20428457":4,"20428574":4,"20428596":2,"20428639":10,"20428661":6,"20428674":12,"20428779":4,"20428829":5,"20428862":11,"20428934":5,"20428945":5,"20429004":12,"20429088":5,"20429144":11,"20429214":8,"20429253":6,"20429524":7,"20429573":7,"20429725":9,"20429808":5,"20429861":9,"20429923":5,"20429982":9,"20430098":7,"20430125":11,"20430270":1,"20430556":11,"20430558":12,"20430589":2,"20431043":7,"20431117":12,"20431469":1,"20431661":5,"20431696":2,"20431761":7,"20431875":9,"20431973":1,"20432254":8,"20432406":1,"20433135":11,"20439414":4,"20439651":12};
 import {
   getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles,
   getGradeSettings, getEvaluators, calculateAvgScore, getExtraOpinionFields
@@ -63,33 +65,37 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   useEffect(() => {
     if (!user.division_id) { setLoading(false); return; }
     setLoading(true);
-    getExtraOpinionFields(user.year).then(setExtraOpinionFields);
+    // All independent queries in parallel
     Promise.all([
       getCompanies(user.year, user.division_id),
       getEvaluations({ evaluatorId: user.id }),
       getEvalCriteria(user.year, '서류'),
       getEvalCriteria(user.year, '발표'),
-    ]).then(async ([cos, evs, docC, presC]) => {
-      const active = cos.filter(c => !c.is_excluded);
+      getExtraOpinionFields(user.year),
+      getEvaluators(user.year),
+      getGradeSettings(user.year),
+    ]).then(async ([cos, evs, docC, presC, xof, evrs, gs]) => {
+      const active = (cos as import('../types').Company[]).filter(c => !c.is_excluded);
       setCompanies(active);
-      setEvaluations(evs);
-      setDocSections(buildSections(docC));
-      setPresSections(buildSections(presC));
+      setEvaluations(evs as import('../types').Evaluation[]);
+      setDocSections(buildSections(docC as import('../types').EvalCriterion[]));
+      setPresSections(buildSections(presC as import('../types').EvalCriterion[]));
+      setExtraOpinionFields(xof as import('../types').ExtraOpinionField[]);
+      setAllEvaluators((evrs as import('../types').Evaluator[]).filter(e => e.role !== 'admin'));
+      setGrades(gs as import('../types').GradeSetting[]);
+      setLoading(false); // Show UI immediately
+      // Load company-specific data in background
       if (active.length > 0) {
-        const [files, ae, evrs, gs] = await Promise.all([
-          getCompanyFiles(active.map(c => c.project_no)),
-          getEvaluations({ companyIds: active.map(c => c.project_no) }),
-          getEvaluators(user.year),
-          getGradeSettings(user.year),
+        const ids = active.map(c => c.project_no);
+        const [files, ae] = await Promise.all([
+          getCompanyFiles(ids),
+          getEvaluations({ companyIds: ids }),
         ]);
         const fm: Record<string, CompanyFile[]> = {};
-        files.forEach(f => { if (!fm[f.company_id]) fm[f.company_id] = []; fm[f.company_id].push(f); });
+        (files as CompanyFile[]).forEach(f => { if (!fm[f.company_id]) fm[f.company_id] = []; fm[f.company_id].push(f); });
         setCompanyFiles(fm);
-        setAllEvals(ae);
-        setAllEvaluators(evrs.filter(e => e.role !== 'admin'));
-        setGrades(gs);
+        setAllEvals(ae as import('../types').Evaluation[]);
       }
-      setLoading(false);
     });
   }, [user]);
 
@@ -355,7 +361,7 @@ ${extraOpHtml}
       );
     }
     return true;
-  });
+  }).sort((a, b) => (PRES_ORDER[a.project_no] ?? 999) - (PRES_ORDER[b.project_no] ?? 999));
 
   const selectedEvalType = selected ? getActiveEvalType(selected) : null;
   const selectedEv = selected && selectedEvalType ? getEvalForCompany(selected.project_no, selectedEvalType) : undefined;
@@ -865,6 +871,9 @@ ${extraOpHtml}
                       <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.startup_stage.includes('예비') ? 'bg-green-100 text-green-700' : co.startup_stage.includes('초기') ? 'bg-blue-100 text-blue-700' : co.startup_stage.includes('도약') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
                         {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
                       </span>
+                    )}
+                    {co.recruit_type && (
+                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-medium">{co.recruit_type}</span>
                     )}
                     <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{co.tech_field}</span>
                     {evalType && (

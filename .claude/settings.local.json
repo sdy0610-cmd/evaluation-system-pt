@@ -22,7 +22,11 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Read(//c/Users/SDY/.claude/projects/c--Users-SDY-Desktop-AI-evaluation-system-pt/memory\" 2>/dev/**)",
+      "Read(//c/Users/SDY/.claude/projects/c--Users-SDY-Desktop-AI-evaluation-system-pt/memory/**)",
+      "Read(//c/Users/SDY/Desktop/**)",
+      "Bash(ls *.xlsx)"
     ]
   }
 }

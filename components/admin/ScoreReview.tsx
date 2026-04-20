@@ -172,6 +172,7 @@ export default function ScoreReview({ year, user }: Props) {
       else if (sortKey === 'division') { sa = a.company.division?.division_name || ''; sb = b.company.division?.division_name || ''; }
       else if (sortKey === 'representative') { sa = a.company.representative; sb = b.company.representative; }
       else if (sortKey === 'recruit_type') { sa = a.company.recruit_type || ''; sb = b.company.recruit_type || ''; }
+      else if (sortKey === 'startup_stage') { sa = a.company.startup_stage || ''; sb = b.company.startup_stage || ''; }
       else if (sortKey === 'age_group') { sa = a.company.age_group || ''; sb = b.company.age_group || ''; }
       else if (sortKey === 'project_title') { sa = a.company.project_title; sb = b.company.project_title; }
       return dir * sa.localeCompare(sb, 'ko');
@@ -406,7 +407,8 @@ export default function ScoreReview({ year, user }: Props) {
                     { key: 'project_no', label: '과제번호', cls: 'w-24 text-left' },
                     { key: 'division',   label: '분과',   cls: 'w-28 text-left' },
                     { key: 'representative', label: '대표자', cls: 'w-16 text-left' },
-                    { key: 'recruit_type',   label: '모집공고', cls: 'w-20 text-left' },
+                    { key: 'recruit_type',   label: '모집공고', cls: 'w-16 text-left' },
+                    { key: 'startup_stage',  label: '창업단계', cls: 'w-16 text-center' },
                     { key: 'age_group',  label: '청/중',  cls: 'w-14 text-center' },
                     { key: 'project_title',  label: '과제명', cls: 'min-w-48 text-left' },
                   ].map(col => (
@@ -506,15 +508,15 @@ export default function ScoreReview({ year, user }: Props) {
                         {co.division?.division_name || '-'}
                       </td>
                       <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
+                      <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap" title={co.recruit_type || ''}>
+                        {co.recruit_type ? co.recruit_type.slice(0, 2) : '-'}
+                      </td>
                       <td className="px-2 py-3 text-xs text-center whitespace-nowrap">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-gray-500" title={co.recruit_type || ''}>{co.recruit_type ? co.recruit_type.slice(0, 2) : '-'}</span>
-                          {co.startup_stage && (
-                            <span className={`font-medium ${co.startup_stage.includes('예비') ? 'text-green-600' : co.startup_stage.includes('초기') ? 'text-blue-600' : co.startup_stage.includes('도약') ? 'text-purple-600' : 'text-gray-500'}`}>
-                              {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
-                            </span>
-                          )}
-                        </div>
+                        {co.startup_stage ? (
+                          <span className={`font-medium ${co.startup_stage.includes('예비') ? 'text-green-600' : co.startup_stage.includes('초기') ? 'text-blue-600' : co.startup_stage.includes('도약') ? 'text-purple-600' : 'text-gray-500'}`}>
+                            {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}
                       </td>
                       <td className="px-2 py-3 text-center whitespace-nowrap">
                         {co.age_group ? (
