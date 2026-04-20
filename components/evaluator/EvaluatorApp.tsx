@@ -551,10 +551,21 @@ ${extraOpHtml}
               <div className="px-6 py-5 border-b border-gray-100">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 mb-1">{selected.tech_field} · {selected.startup_stage}</p>
+                    <p className="text-xs text-gray-500 mb-1">{selected.tech_field}</p>
                     <h2 className="font-bold text-gray-900 leading-snug">{selected.project_title}</h2>
                     <p className="text-sm text-gray-600 mt-1">{selected.representative}</p>
-                    <div className="flex gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {selected.startup_stage && (
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${selected.startup_stage.includes('예비') ? 'bg-green-100 text-green-700' : selected.startup_stage.includes('초기') ? 'bg-blue-100 text-blue-700' : selected.startup_stage.includes('도약') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {selected.startup_stage.includes('예비') ? '예비' : selected.startup_stage.includes('초기') ? '초기' : selected.startup_stage.includes('도약') ? '도약' : selected.startup_stage}
+                        </span>
+                      )}
+                      {selected.recruit_type && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">{selected.recruit_type}</span>
+                      )}
+                      {selected.age_group && (
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${selected.age_group === '청년' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{selected.age_group}</span>
+                      )}
                       {selected.is_legend && (
                         <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">
                           <Star size={10} />레전드
