@@ -574,9 +574,9 @@ export default function ScoreReview({ year, user }: Props) {
                       <td className="px-3 py-3 text-center bg-blue-50 font-bold text-blue-900">
                         {row.final > 0 ? row.final.toFixed(2) : '-'}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         {(() => { const g = row.final > 0 ? getGradeForScore(row.final, grades) : null; return g ? (
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${g.is_selected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{g.grade_name}</span>
+                          <span className={`text-xs font-semibold ${g.is_selected ? 'text-green-700' : 'text-gray-600'}`}>{g.grade_name}</span>
                         ) : <span className="text-gray-300 text-xs">-</span>; })()}
                       </td>
                       <td className="px-3 py-3 text-center">
