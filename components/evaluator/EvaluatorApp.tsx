@@ -61,6 +61,9 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [extraOpinions, setExtraOpinions] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
+  const todayStr = () => new Date().toISOString().slice(0, 10);
+  const [printDateModal, setPrintDateModal] = useState<{ mode: 'single' | 'eval'; company?: Company } | null>(null);
+  const [printDate, setPrintDate] = useState(todayStr);
 
   useEffect(() => {
     if (!user.division_id) { setLoading(false); return; }
@@ -143,7 +146,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     setSubmitMsg('');
   }
 
-  function buildFormPage(co: Company): string {
+  function buildFormPage(co: Company, dateStr?: string): string {
       const evalType = getActiveEvalType(co);
       if (!evalType) return '';
       const ev = getEvalForCompany(co.project_no, evalType);
@@ -194,7 +197,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     ${extraOpinionRows}
   </table>
   <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
-  <div class="confirm-date">${user.year}년 ${new Date().getMonth() + 1}월 ${new Date().getDate()}일</div>
+  <div class="confirm-date">${dateStr ? dateStr.replace(/-/g, '년 ').replace(/년 (\d+)년 (\d+)$/, '년 $1월 $2일') : `${user.year}년 ${new Date().getMonth() + 1}월 ${new Date().getDate()}일`}</div>
   <div class="sig-line">소속: ${user.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${user.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">주관기관장 귀하</div>
 </div>`;
@@ -231,17 +234,36 @@ ${pages}</body></html>`);
 
   function handlePrintSingleCard(e: React.MouseEvent, co: Company) {
     e.stopPropagation();
-    const page = buildFormPage(co);
-    if (!page) return;
-    openPrintWindow(page, `${co.project_no} 평가표`);
+    setPrintDate(todayStr());
+    setPrintDateModal({ mode: 'single', company: co });
   }
 
   function handlePrintAllForms() {
-    const pages = companies.map(co => buildFormPage(co)).filter(Boolean).join('\n');
-    openPrintWindow(pages, `${user.year}년도 ${user.division?.division_name} 평가표`);
+    setPrintDate(todayStr());
+    setPrintDateModal({ mode: 'single' }); // reuse modal, no specific company = all forms
+  }
+
+  function doPrint(dateStr: string) {
+    const modal = printDateModal;
+    setPrintDateModal(null);
+    if (!modal) return;
+    if (modal.mode === 'eval') {
+      doPrintEvalForm(dateStr);
+    } else if (modal.company) {
+      const page = buildFormPage(modal.company, dateStr);
+      if (page) openPrintWindow(page, `${modal.company.project_no} 평가표`);
+    } else {
+      const pages = companies.map(co => buildFormPage(co, dateStr)).filter(Boolean).join('\n');
+      openPrintWindow(pages, `${user.year}년도 ${user.division?.division_name} 평가표`);
+    }
   }
 
   function handlePrintEvalForm() {
+    setPrintDate(todayStr());
+    setPrintDateModal({ mode: 'eval' });
+  }
+
+  function doPrintEvalForm(dateStr: string) {
     if (!selected || !selectedEv) return;
     const sc = selectedEv.adjusted_score ?? selectedEv.score ?? 0;
     const ss = selectedEv.sub_scores as Record<string, number> | undefined;
@@ -286,7 +308,7 @@ ${extraOpHtml}
 </tbody></table>
 <div class="sig">
   <p>위 평가 결과가 사실임을 확인합니다.</p>
-  <p>평가일: ${user.year}년 &nbsp;&nbsp; 월 &nbsp;&nbsp; 일</p>
+  <p>평가일: ${dateStr.replace(/-/g, '년 ').replace(/년 (\d+)년 (\d+)$/, '년 $1월 $2일')}</p>
   <p>소속: ${user.organization || ''} &nbsp;&nbsp; 직위: ${user.position || ''} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (서명)</p>
 </div></body></html>`);
     win.document.close();
@@ -398,6 +420,25 @@ ${extraOpHtml}
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Print date picker modal */}
+      {printDateModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80">
+            <h3 className="font-bold text-gray-900 mb-1">인쇄 날짜 선택</h3>
+            <p className="text-xs text-gray-500 mb-4">평가표에 기재할 날짜를 선택하세요.</p>
+            <input
+              type="date"
+              value={printDate}
+              onChange={e => setPrintDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setPrintDateModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={() => doPrint(printDate)} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">인쇄</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-4">
