@@ -494,7 +494,7 @@ export default function ScoreReview({ year, user }: Props) {
                   {[
                     { key: 'knockout', label: '과락' },
                     { key: 'result',   label: '결과' },
-                    { key: 'opinion',  label: '의견' },
+                    { key: 'opinion',  label: '💬' },
                     { key: 'confirmed', label: '확정' },
                   ].map(col => (
                     <th key={col.key}
@@ -653,8 +653,11 @@ export default function ScoreReview({ year, user }: Props) {
                       <td className="px-3 py-3 text-center">
                         <button
                           onClick={() => setOpinionModal({ company: co, evals: row.evals })}
-                          className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 transition-colors"
-                        >의견</button>
+                          title="평가의견 보기"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </button>
                       </td>
                       <td className="px-3 py-3 text-center">
                         {row.allConfirmed ? (
