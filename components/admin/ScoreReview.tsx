@@ -507,11 +507,9 @@ export default function ScoreReview({ year, user }: Props) {
                       </td>
                       <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
                       <td className="px-2 py-3 text-xs text-center whitespace-nowrap">
-                        {co.recruit_type ? (
-                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium" title={co.recruit_type}>
-                            {co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)}
-                          </span>
-                        ) : <span className="text-gray-300">-</span>}
+                        <span className="text-gray-600" title={co.recruit_type || ''}>
+                          {co.recruit_type ? (co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)) : '-'}
+                        </span>
                       </td>
                       <td className="px-2 py-3 text-center whitespace-nowrap">
                         {co.age_group ? (
