@@ -150,7 +150,7 @@ export default function DivisionsManager({ year }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-700">
-              {['분과명', '위원장', '배정 평가위원 (5명)', ''].map(h => (
+              {['분과명', '위원장', '배정 평가위원', ''].map(h => (
                 <th key={h} className="px-5 py-2.5 text-left text-xs font-semibold text-slate-200 tracking-wide">{h}</th>
               ))}
             </tr>
