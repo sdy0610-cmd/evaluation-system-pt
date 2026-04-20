@@ -238,6 +238,11 @@ export async function saveEvaluation(ev: Partial<Evaluation>): Promise<Evaluatio
   return data;
 }
 
+export async function deleteEvaluation(id: number): Promise<void> {
+  const { error } = await supabase.from('startup_evaluations').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function adjustScore(
   id: number,
   adjustedScore: number,

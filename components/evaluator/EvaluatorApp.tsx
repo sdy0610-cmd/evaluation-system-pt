@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const PRES_ORDER: Record<string, number> = {"20401269":4,"20402754":12,"20403700":9,"20403842":3,"20404406":9,"20404581":1,"20404954":2,"20405890":5,"20406455":3,"20406463":10,"20406894":1,"20407665":10,"20408825":10,"20408877":1,"20409229":4,"20409931":6,"20410202":3,"20410732":3,"20410913":11,"20412024":5,"20412297":4,"20412385":3,"20412766":1,"20413111":2,"20413200":12,"20413444":3,"20413666":8,"20413825":4,"20413968":1,"20413981":12,"20414096":1,"20414167":2,"20414230":13,"20414308":11,"20414625":1,"20414728":11,"20414883":3,"20414899":6,"20415322":13,"20415487":9,"20415499":8,"20415506":8,"20415588":1,"20415684":10,"20415817":3,"20415837":5,"20415839":2,"20415849":9,"20415851":3,"20415870":10,"20416056":3,"20416188":1,"20416208":11,"20416443":5,"20416502":10,"20416542":8,"20416668":11,"20416947":8,"20417238":8,"20417471":6,"20417534":2,"20417596":9,"20417599":2,"20417617":10,"20417675":5,"20417694":6,"20417697":10,"20417774":6,"20417896":7,"20418037":6,"20418175":4,"20418401":7,"20418458":11,"20418464":6,"20418471":11,"20418598":12,"20418609":8,"20418623":9,"20418691":3,"20418733":9,"20418814":1,"20418822":7,"20418903":8,"20419110":10,"20419166":12,"20419189":8,"20419192":9,"20419206":9,"20419317":4,"20419372":2,"20419387":11,"20419388":3,"20420108":6,"20420127":4,"20420270":8,"20420569":7,"20421734":4,"20421742":12,"20421952":9,"20422010":11,"20422710":4,"20423046":4,"20423136":4,"20423461":2,"20423821":10,"20424315":1,"20424483":4,"20424497":2,"20424540":8,"20424544":10,"20424587":2,"20424619":1,"20424645":3,"20424775":3,"20424839":6,"20424850":10,"20425290":8,"20425350":12,"20425527":11,"20425601":2,"20425607":6,"20425675":7,"20425711":2,"20425812":7,"20425817":3,"20426082":9,"20426148":1,"20426411":9,"20426658":7,"20426671":12,"20426680":11,"20426887":10,"20426937":8,"20427103":5,"20427459":12,"20427486":10,"20427490":10,"20427515":5,"20427563":5,"20427569":4,"20427590":10,"20428037":3,"20428115":9,"20428133":7,"20428258":7,"20428259":2,"20428287":8,"20428312":7,"20428346":2,"20428457":4,"20428574":4,"20428596":2,"20428639":10,"20428661":6,"20428674":12,"20428779":4,"20428829":5,"20428862":11,"20428934":5,"20428945":5,"20429004":12,"20429088":5,"20429144":11,"20429214":8,"20429253":6,"20429524":7,"20429573":7,"20429725":9,"20429808":5,"20429861":9,"20429923":5,"20429982":9,"20430098":7,"20430125":11,"20430270":1,"20430556":11,"20430558":12,"20430589":2,"20431043":7,"20431117":12,"20431469":1,"20431661":5,"20431696":2,"20431761":7,"20431875":9,"20431973":1,"20432254":8,"20432406":1,"20433135":11,"20439414":4,"20439651":12};
 import {
-  getCompanies, getEvaluations, saveEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles,
+  getCompanies, getEvaluations, saveEvaluation, deleteEvaluation, getFileUrl, getEvalCriteria, getCompanyFiles,
   getGradeSettings, getEvaluators, calculateAvgScore, getExtraOpinionFields
 } from '../../services/api';
 import type { Evaluator, Company, Evaluation, EvalCriterion, CompanyFile, GradeSetting, ExtraOpinionField } from '../../types';
@@ -390,6 +390,23 @@ ${extraOpHtml}
     }
   }
 
+  async function handleReset() {
+    if (!selected || !selectedEv) return;
+    if (!confirm('이 기업의 평가를 초기화하시겠습니까? 입력한 점수와 의견이 모두 삭제됩니다.')) return;
+    try {
+      await deleteEvaluation(selectedEv.id as number);
+      setEvaluations(prev => prev.filter(e => e.id !== selectedEv.id));
+      setAllEvals(prev => prev.filter(e => e.id !== selectedEv.id));
+      setScore('');
+      setSubScores({});
+      setComment('');
+      setRegionMatch(null);
+      setRegionMatchComment('');
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
   const evaluated = companies.filter(c => isEvaluated(c));
   const progress = companies.length > 0 ? Math.round((evaluated.length / companies.length) * 100) : 0;
 
@@ -500,24 +517,35 @@ ${extraOpHtml}
         </div>
       </header>
 
-      {/* Grade distribution stats panel */}
+      {/* Grade distribution stats panel - fixed overlay */}
       {showStats && (
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          {(() => {
-            const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
-            const finalScores: Record<string, number> = {};
-            companies.forEach(co => {
-              const evalType = getActiveEvalType(co);
-              const scores = divEvs.map(ev => {
-                const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
-                return e ? (e.adjusted_score ?? e.score ?? null) : null;
-              });
-              const avg = calculateAvgScore(scores);
-              if (avg > 0) finalScores[co.project_no] = avg;
-            });
-            return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
-          })()}
-        </div>
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowStats(false)} />
+          <div className="fixed top-16 right-4 z-50 w-[680px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <span className="font-semibold text-gray-800 text-sm">등급 분포 현황</span>
+              <button onClick={() => setShowStats(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-8rem)]">
+              {(() => {
+                const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+                const finalScores: Record<string, number> = {};
+                companies.forEach(co => {
+                  const evalType = getActiveEvalType(co);
+                  const scores = divEvs.map(ev => {
+                    const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
+                    return e ? (e.adjusted_score ?? e.score ?? null) : null;
+                  });
+                  const avg = calculateAvgScore(scores);
+                  if (avg > 0) finalScores[co.project_no] = avg;
+                });
+                return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
+              })()}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Evaluation modal */}
@@ -810,21 +838,31 @@ ${extraOpHtml}
                   </button>
                 )}
                 {!isConfirmed && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setSelected(null)}
-                      className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
-                    >
-                      닫기
-                    </button>
-                    <button
-                      onClick={handleSubmit}
-                      disabled={submitting || !score || parseFloat(score) === 0}
-                      className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                    >
-                      {submitting ? '저장 중...' : selectedEv ? '수정 저장' : '평가 제출'}
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setSelected(null)}
+                        className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
+                      >
+                        닫기
+                      </button>
+                      <button
+                        onClick={handleSubmit}
+                        disabled={submitting || !score || parseFloat(score) === 0}
+                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {submitting ? '저장 중...' : selectedEv ? '수정 저장' : '평가 제출'}
+                      </button>
+                    </div>
+                    {selectedEv && (
+                      <button
+                        onClick={handleReset}
+                        className="w-full mt-2 py-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
+                      >
+                        점수 초기화
+                      </button>
+                    )}
+                  </>
                 )}
                 {selectedEv && !isConfirmed && (
                   <button
