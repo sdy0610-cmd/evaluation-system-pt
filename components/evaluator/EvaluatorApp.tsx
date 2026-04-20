@@ -56,8 +56,6 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [score, setScore] = useState('');
   const [subScores, setSubScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
-  const [regionMatch, setRegionMatch] = useState<boolean | null>(null);
-  const [regionMatchComment, setRegionMatchComment] = useState('');
   const [extraOpinions, setExtraOpinions] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
@@ -127,8 +125,6 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
       }
       setComment(ev?.comment || '');
-      setRegionMatch(ev?.region_match ?? null);
-      setRegionMatchComment(ev?.region_match_comment || '');
       setExtraOpinions(ev?.extra_opinions || {});
     } else {
       setScore('');
@@ -189,7 +185,6 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   <table class="opinion-tbl">
     <tr><th>평 가 의 견</th></tr>
     <tr><td class="opinion-area">${ev?.comment || ''}</td></tr>
-    ${co.recruit_type === '대학발' ? `<tr><td style="padding:4px 8px;font-size:10px;color:#555">※ 지역주력산업 일치 여부: ${ev?.region_match === true ? '일치' : ev?.region_match === false ? '불일치' : '　　'} &nbsp;&nbsp; 의견: ${ev?.region_match_comment || ''}</td></tr>` : ''}
     ${extraOpinionRows}
   </table>
   <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
@@ -281,11 +276,6 @@ ${subsHtml}
 </tbody></table>
 <table><thead><tr><th>평가의견</th></tr></thead><tbody>
 <tr><td style="min-height:60px;padding:8px">${selectedEv.comment || ''}</td></tr>
-${selected.recruit_type === '대학발' ? `
-<tr><th>지역주력산업 일치 여부</th></tr>
-<tr><td>${selectedEv.region_match === true ? '✅ 일치' : selectedEv.region_match === false ? '❌ 불일치' : '-'}</td></tr>
-<tr><th>지역주력산업 관련 의견</th></tr>
-<tr><td style="min-height:40px;padding:8px">${selectedEv.region_match_comment || ''}</td></tr>` : ''}
 ${extraOpHtml}
 </tbody></table>
 <div class="sig">
@@ -329,8 +319,6 @@ ${extraOpHtml}
         score: sc,
         sub_scores: Object.keys(subScores).length > 0 ? subScores : undefined,
         comment: comment.trim() || undefined,
-        region_match: selected.recruit_type === '대학발' ? (regionMatch ?? undefined) : undefined,
-        region_match_comment: selected.recruit_type === '대학발' ? (regionMatchComment.trim() || undefined) : undefined,
         extra_opinions: Object.keys(extraOpinions).length > 0 ? extraOpinions : undefined,
         submitted_at: new Date().toISOString(),
       });
@@ -699,39 +687,6 @@ ${extraOpHtml}
                       />
                       <div className="text-right text-xs text-gray-400 mt-1">{comment.length}자</div>
                     </div>
-
-                    {selected?.recruit_type === '대학발' && (
-                      <div className="border border-amber-200 rounded-xl p-4 bg-amber-50 space-y-3">
-                        <div className="text-sm font-semibold text-amber-800">대학발 추가 의견</div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-2">지역주력산업과 창업아이템 일치 여부</label>
-                          <div className="flex gap-4">
-                            {[{ val: true, label: '✅ 일치' }, { val: false, label: '❌ 불일치' }].map(({ val, label }) => (
-                              <label key={String(val)} className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="regionMatch"
-                                  checked={regionMatch === val}
-                                  onChange={() => setRegionMatch(val)}
-                                  className="accent-amber-600"
-                                />
-                                <span className="text-sm">{label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1.5">일치/불일치 관련 의견</label>
-                          <textarea
-                            value={regionMatchComment}
-                            onChange={e => setRegionMatchComment(e.target.value)}
-                            rows={3}
-                            placeholder="지역주력산업과의 관련성에 대한 의견을 입력하세요."
-                            className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none bg-white"
-                          />
-                        </div>
-                      </div>
-                    )}
 
                     {(() => {
                       const matchingFields = extraOpinionFields
