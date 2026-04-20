@@ -377,8 +377,9 @@ export function getFileUrl(filePath: string): string {
 }
 
 export async function uploadCompanyDoc(file: File, companyId: string, year: number): Promise<string> {
-  const safe = file.name.replace(/[^a-zA-Z0-9._가-힣\-]/g, '_');
-  const path = `${year}/docs/${companyId}/${Date.now()}_${safe}`;
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : '';
+  const safe = `${companyId}_${Date.now()}${ext ? '.' + ext : ''}`;
+  const path = `${year}/docs/${companyId}/${safe}`;
   const { error } = await supabase.storage.from('startup-companies').upload(path, file, { upsert: true });
   if (error) throw new Error(`업로드 실패: ${error.message}`);
   return path;
