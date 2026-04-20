@@ -494,7 +494,7 @@ export default function ScoreReview({ year, user }: Props) {
                   {[
                     { key: 'knockout', label: '과락' },
                     { key: 'result',   label: '결과' },
-                    { key: 'opinion',  label: '💬' },
+                    { key: 'opinion',  label: '평가의견' },
                     { key: 'confirmed', label: '확정' },
                   ].map(col => (
                     <th key={col.key}
@@ -650,13 +650,14 @@ export default function ScoreReview({ year, user }: Props) {
                           <option value="탈락">탈락</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         <button
                           onClick={() => setOpinionModal({ company: co, evals: row.evals })}
                           title="평가의견 보기"
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors text-xs font-medium"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          평가의견
                         </button>
                       </td>
                       <td className="px-3 py-3 text-center">
