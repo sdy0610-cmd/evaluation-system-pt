@@ -58,6 +58,8 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [score, setScore] = useState('');
   const [subScores, setSubScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
+  const [regionMatch, setRegionMatch] = useState<'일치' | '불일치' | null>(null);
+  const [regionMatchComment, setRegionMatchComment] = useState('');
   const [extraOpinions, setExtraOpinions] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
@@ -134,7 +136,10 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
       }
       setComment(ev?.comment || '');
-      setExtraOpinions(ev?.extra_opinions || {});
+      const xo = (ev?.extra_opinions as Record<string, string>) || {};
+      setRegionMatch((xo['주력산업_일치여부'] as '일치' | '불일치') || null);
+      setRegionMatchComment(xo['주력산업_의견'] || '');
+      setExtraOpinions(xo);
     } else {
       setScore('');
       setSubScores({});
@@ -154,12 +159,14 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       const sc = ev ? (ev.adjusted_score ?? ev.score ?? 0) : 0;
       const sections = evalType === '서류' ? docSections : presSections;
 
-      const xfEntries = ev?.extra_opinions ? Object.entries(ev.extra_opinions as Record<string, string>) : [];
-      const extraOpinionRows = xfEntries.length > 0
-        ? xfEntries.map(([label, val]) =>
-            '<tr><th style="background:#f3e8ff;color:#6b21a8;font-size:10.5px">' + label + '</th></tr>' +
-            '<tr><td class="opinion-area" style="min-height:50px;height:50px">' + val + '</td></tr>'
-          ).join('')
+      const xo = (ev?.extra_opinions as Record<string, string>) || {};
+      const rmMatch = xo['주력산업_일치여부'] || '';
+      const rmComment = xo['주력산업_의견'] || '';
+      const extraOpinionRows = (rmMatch || rmComment)
+        ? '<tr><th style="background:#e0e7ff;color:#3730a3;font-size:10.5px">대학발 주력산업 일치여부</th></tr>' +
+          '<tr><td class="opinion-area" style="min-height:40px;height:40px">' +
+          (rmMatch ? '<strong>' + rmMatch + '</strong>' + (rmComment ? '&nbsp;&nbsp;' : '') : '') +
+          rmComment + '</td></tr>'
         : '';
 
       const scoreRows = sections.length > 0
@@ -270,12 +277,14 @@ ${pages}</body></html>`);
     const win = window.open('', '_blank');
     if (!win) return;
     const activeSections = selectedEvalType === '서류' ? docSections : presSections;
-    const xfPrint = selectedEv.extra_opinions ? Object.entries(selectedEv.extra_opinions as Record<string, string>) : [];
-    const extraOpHtml = xfPrint.length > 0
-      ? xfPrint.map(([label, val]) =>
-          '<tr><th style="background:#f3e8ff;color:#6b21a8">' + label + '</th></tr>' +
-          '<tr><td style="min-height:40px;padding:8px">' + val + '</td></tr>'
-        ).join('')
+    const xoPrint = (selectedEv.extra_opinions as Record<string, string>) || {};
+    const rmMatchP = xoPrint['주력산업_일치여부'] || '';
+    const rmCommentP = xoPrint['주력산업_의견'] || '';
+    const extraOpHtml = (rmMatchP || rmCommentP)
+      ? '<tr><th style="background:#e0e7ff;color:#3730a3">대학발 주력산업 일치여부</th></tr>' +
+        '<tr><td style="min-height:40px;padding:8px">' +
+        (rmMatchP ? '<strong>' + rmMatchP + '</strong>' + (rmCommentP ? '&nbsp;&nbsp;' : '') : '') +
+        rmCommentP + '</td></tr>'
       : '';
 
     const subsHtml = ss && activeSections.length > 0 ? activeSections.map(sec => `
@@ -347,7 +356,12 @@ ${extraOpHtml}
         score: sc,
         sub_scores: Object.keys(subScores).length > 0 ? subScores : undefined,
         comment: comment.trim() || undefined,
-        extra_opinions: Object.keys(extraOpinions).length > 0 ? extraOpinions : undefined,
+        extra_opinions: (() => {
+          const xo: Record<string, string> = {};
+          if (regionMatch) xo['주력산업_일치여부'] = regionMatch;
+          if (regionMatchComment.trim()) xo['주력산업_의견'] = regionMatchComment.trim();
+          return Object.keys(xo).length > 0 ? xo : undefined;
+        })(),
         submitted_at: new Date().toISOString(),
       });
       setEvaluations(prev => {
@@ -746,29 +760,28 @@ ${extraOpHtml}
                       <div className="text-right text-xs text-gray-400 mt-1">{comment.length}자</div>
                     </div>
 
-                    {(() => {
-                      const matchingFields = extraOpinionFields
-                        .filter(f => f.recruit_type === selected?.recruit_type)
-                        .sort((a, b) => a.sort_order - b.sort_order);
-                      if (matchingFields.length === 0) return null;
-                      return (
-                        <div className="border border-purple-200 rounded-xl p-4 bg-purple-50 space-y-3">
-                          <div className="text-sm font-semibold text-purple-800">추가 의견 항목</div>
-                          {matchingFields.map(f => (
-                            <div key={f.id}>
-                              <label className="block text-xs font-medium text-gray-700 mb-1.5">{f.field_label}</label>
-                              <textarea
-                                value={extraOpinions[f.field_label] || ''}
-                                onChange={e => setExtraOpinions(prev => ({ ...prev, [f.field_label]: e.target.value }))}
-                                rows={3}
-                                placeholder={`${f.field_label}에 대한 의견을 입력하세요.`}
-                                className="w-full border border-purple-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none bg-white"
-                              />
-                            </div>
+                    {selected?.recruit_type?.includes('대학발') && (
+                      <div className="border border-indigo-200 rounded-xl p-4 bg-indigo-50 space-y-3">
+                        <div className="text-sm font-semibold text-indigo-800">대학발 주력산업 일치여부</div>
+                        <div className="flex gap-2">
+                          {(['일치', '불일치'] as const).map(v => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setRegionMatch(regionMatch === v ? null : v)}
+                              className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${regionMatch === v ? (v === '일치' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-red-500 text-white border-red-500') : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'}`}
+                            >{v}</button>
                           ))}
                         </div>
-                      );
-                    })()}
+                        <textarea
+                          value={regionMatchComment}
+                          onChange={e => setRegionMatchComment(e.target.value)}
+                          rows={3}
+                          placeholder="주력산업 일치여부에 대한 의견을 입력하세요."
+                          className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none bg-white"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </div>
