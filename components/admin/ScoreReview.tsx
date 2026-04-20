@@ -507,9 +507,14 @@ export default function ScoreReview({ year, user }: Props) {
                       </td>
                       <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
                       <td className="px-2 py-3 text-xs text-center whitespace-nowrap">
-                        <span className="text-gray-600" title={co.recruit_type || ''}>
-                          {co.recruit_type ? (co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)) : '-'}
-                        </span>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-gray-500" title={co.recruit_type || ''}>{co.recruit_type ? co.recruit_type.slice(0, 2) : '-'}</span>
+                          {co.startup_stage && (
+                            <span className={`font-medium ${co.startup_stage.includes('예비') ? 'text-green-600' : co.startup_stage.includes('초기') ? 'text-blue-600' : co.startup_stage.includes('도약') ? 'text-purple-600' : 'text-gray-500'}`}>
+                              {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-2 py-3 text-center whitespace-nowrap">
                         {co.age_group ? (

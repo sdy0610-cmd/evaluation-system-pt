@@ -295,7 +295,7 @@ export default function CompaniesManager({ year }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {['과제번호', '대표자명', '자료', '모집공고', '청/중', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
+                {['과제번호', '대표자명', '자료', '모집공고', '창업단계', '청/중', '과제명', '전문기술분야', '분과', '단계', '결과', '특수상태', '가점', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -332,6 +332,13 @@ export default function CompaniesManager({ year }: Props) {
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                       {co.recruit_type || <span className="text-gray-300">-</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {co.startup_stage ? (
+                        <span className={`font-medium ${co.startup_stage.includes('예비') ? 'text-green-600' : co.startup_stage.includes('초기') ? 'text-blue-600' : co.startup_stage.includes('도약') ? 'text-purple-600' : 'text-gray-600'}`}>
+                          {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
+                        </span>
+                      ) : <span className="text-gray-300">-</span>}
                     </td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
                       {co.age_group ? (

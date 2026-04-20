@@ -850,9 +850,9 @@ ${extraOpHtml}
                     {co.age_group && (
                       <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{co.age_group}</span>
                     )}
-                    {co.recruit_type && (
-                      <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium">
-                        {co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)}
+                    {co.startup_stage && (
+                      <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.startup_stage.includes('예비') ? 'bg-green-100 text-green-700' : co.startup_stage.includes('초기') ? 'bg-blue-100 text-blue-700' : co.startup_stage.includes('도약') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {co.startup_stage.includes('예비') ? '예비' : co.startup_stage.includes('초기') ? '초기' : co.startup_stage.includes('도약') ? '도약' : co.startup_stage}
                       </span>
                     )}
                     <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{co.tech_field}</span>
