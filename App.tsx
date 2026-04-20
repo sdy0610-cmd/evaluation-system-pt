@@ -79,6 +79,7 @@ export default function App() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">비밀번호</label>
               <input
                 type="password"
+                autoComplete="off"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="비밀번호"

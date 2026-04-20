@@ -505,7 +505,13 @@ export default function ScoreReview({ year, user }: Props) {
                         {co.division?.division_name || '-'}
                       </td>
                       <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
-                      <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap max-w-[80px] truncate" title={co.recruit_type || ''}>{co.recruit_type || '-'}</td>
+                      <td className="px-2 py-3 text-xs text-center whitespace-nowrap">
+                        {co.recruit_type ? (
+                          <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium" title={co.recruit_type}>
+                            {co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)}
+                          </span>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
                       <td className="px-2 py-3 text-center whitespace-nowrap">
                         {co.age_group ? (
                           <span className={`text-xs font-medium ${co.age_group === '청년' ? 'text-blue-600' : 'text-orange-600'}`}>{co.age_group}</span>
@@ -513,34 +519,44 @@ export default function ScoreReview({ year, user }: Props) {
                       </td>
                       <td className="px-2 py-3 text-gray-600 text-xs" title={co.project_title}>{co.project_title}</td>
 
-                      {selectedDivId && evaluators.map((ev, evIdx) => {
-                        const evaluation = row.evals[evIdx];
-                        const hasAdj = evaluation && evaluation.adjusted_score !== null && evaluation.adjusted_score !== undefined;
-                        const displayScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score) : null;
-                        const origScore = evaluation?.score;
-                        return (
-                          <td
-                            key={ev.id}
-                            className={`px-3 py-3 text-center ${
-                              !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
-                            } ${evaluation?.is_knockout ? 'bg-red-100' : ''}`}
-                            onClick={() => evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
-                          >
-                            {displayScore !== null && displayScore !== undefined ? (
-                              <div className="space-y-0.5">
-                                {hasAdj && (
-                                  <div className="text-xs text-gray-400 line-through">{origScore}</div>
-                                )}
-                                <div className={`font-medium text-sm ${hasAdj ? 'text-blue-700' : 'text-gray-800'}`}>
-                                  {displayScore}
+                      {selectedDivId && (() => {
+                        const validScores = row.scores.filter((s): s is number => s !== null && s !== undefined);
+                        const hasMinMax = validScores.length >= 5;
+                        const minScore = hasMinMax ? Math.min(...validScores) : null;
+                        const maxScore = hasMinMax ? Math.max(...validScores) : null;
+                        return evaluators.map((ev, evIdx) => {
+                          const evaluation = row.evals[evIdx];
+                          const hasAdj = evaluation && evaluation.adjusted_score !== null && evaluation.adjusted_score !== undefined;
+                          const displayScore = evaluation ? (evaluation.adjusted_score ?? evaluation.score) : null;
+                          const origScore = evaluation?.score;
+                          const isMin = hasMinMax && displayScore !== null && displayScore === minScore;
+                          const isMax = hasMinMax && displayScore !== null && displayScore === maxScore;
+                          return (
+                            <td
+                              key={ev.id}
+                              className={`px-3 py-3 text-center ${
+                                !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
+                              } ${evaluation?.is_knockout ? 'bg-red-100' : ''}`}
+                              onClick={() => evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
+                            >
+                              {displayScore !== null && displayScore !== undefined ? (
+                                <div className="space-y-0.5">
+                                  {hasAdj && (
+                                    <div className="text-xs text-gray-400 line-through">{origScore}</div>
+                                  )}
+                                  <div className={`font-medium text-sm ${
+                                    isMax ? 'text-blue-600' : isMin ? 'text-red-500' : hasAdj ? 'text-blue-700' : 'text-gray-800'
+                                  }`}>
+                                    {displayScore}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <span className="text-gray-300 text-xs">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
+                              ) : (
+                                <span className="text-gray-300 text-xs">-</span>
+                              )}
+                            </td>
+                          );
+                        });
+                      })()}
 
                       {selectedDivId && Array.from({ length: Math.max(0, 5 - evaluators.length) }).map((_, i) => (
                         <td key={`pad-${i}`} className="px-3 py-3 text-center text-gray-300 text-xs">-</td>

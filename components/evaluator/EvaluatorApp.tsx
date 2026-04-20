@@ -193,7 +193,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
     ${extraOpinionRows}
   </table>
   <div class="confirm">본인은 ${user.year}년 창업중심대학 지원사업 참여기업 선정평가에 참여함에 있어 공정하게 평가하였으며, 평가 결과에 이상이 없음을 확인합니다.</div>
-  <div class="confirm-date">${user.year}년 &nbsp;&nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp;&nbsp; 일</div>
+  <div class="confirm-date">${user.year}년 ${new Date().getMonth() + 1}월 ${new Date().getDate()}일</div>
   <div class="sig-line">소속: ${user.organization || '　　　　　　　　　　　　'} &nbsp;&nbsp; 직위: ${user.position || '　　　　'} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (인)</div>
   <div class="sig-bottom">주관기관장 귀하</div>
 </div>`;
@@ -336,6 +336,10 @@ ${extraOpHtml}
       });
       setEvaluations(prev => {
         const filtered = prev.filter(e => !(e.company_id === selected.project_no && e.evaluation_type === evalType));
+        return [...filtered, saved];
+      });
+      setAllEvals(prev => {
+        const filtered = prev.filter(e => !(e.company_id === selected.project_no && e.evaluator_id === user.id && e.evaluation_type === evalType));
         return [...filtered, saved];
       });
       setSubmitMsg('저장되었습니다.');
@@ -890,6 +894,11 @@ ${extraOpHtml}
                   <div className="flex gap-1.5 flex-wrap">
                     {co.age_group && (
                       <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${co.age_group === '청년' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{co.age_group}</span>
+                    )}
+                    {co.recruit_type && (
+                      <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium">
+                        {co.recruit_type.includes('예비') ? '예' : co.recruit_type.includes('초기') ? '초' : co.recruit_type.includes('도약') ? '도' : co.recruit_type.slice(0, 2)}
+                      </span>
                     )}
                     <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{co.tech_field}</span>
                     {evalType && (

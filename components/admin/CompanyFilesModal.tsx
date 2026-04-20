@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { X, Trash2, FileText } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Trash2, FileText, Upload } from 'lucide-react';
 import type { Company, CompanyFile } from '../../types';
-import { getCompanyFiles, deleteCompanyFile, getFileUrl } from '../../services/api';
+import { getCompanyFiles, deleteCompanyFile, getFileUrl, uploadCompanyDoc, addCompanyFile } from '../../services/api';
 
 interface Props {
   company: Company;
@@ -14,6 +14,8 @@ export default function CompanyFilesModal({ company, year, onClose, onChanged }:
   const [files, setFiles] = useState<CompanyFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<CompanyFile | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -24,6 +26,23 @@ export default function CompanyFilesModal({ company, year, onClose, onChanged }:
   }
 
   useEffect(() => { load(); }, [company.project_no]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setUploading(true);
+    try {
+      const path = await uploadCompanyDoc(file, company.project_no, year);
+      await addCompanyFile({ company_id: company.project_no, year, file_path: path, file_name: file.name, file_type: 'doc' });
+      onChanged();
+      await load();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleDelete(f: CompanyFile) {
     if (!confirm(`"${f.file_name}" 파일 연결을 삭제하시겠습니까?`)) return;
@@ -54,8 +73,16 @@ export default function CompanyFilesModal({ company, year, onClose, onChanged }:
         <div className="flex flex-1 min-h-0">
           {/* File list sidebar */}
           <div className="w-64 shrink-0 border-r border-gray-100 flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-100 text-xs font-medium text-gray-500">
-              파일 목록 ({allFiles.length}개)
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">파일 목록 ({allFiles.length}개)</span>
+              <input ref={uploadRef} type="file" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx" onChange={handleUpload} className="hidden" />
+              <button
+                onClick={() => uploadRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50"
+              >
+                <Upload size={11} />{uploading ? '업로드 중...' : '파일 추가'}
+              </button>
             </div>
             {loading ? (
               <div className="p-4 text-xs text-gray-400">로딩 중...</div>

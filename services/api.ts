@@ -11,9 +11,10 @@ export function calculateAvgScore(scores: (number | null | undefined)[]): number
     const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
     return Math.round(avg * 100) / 100;
   }
+  // 5인 이상: 최고점·최저점 각 1개 제외 후 나머지 평균
   const sorted = [...valid].sort((a, b) => a - b);
-  const middle = sorted.slice(1, 4);
-  const avg = middle.reduce((a, b) => a + b, 0) / 3;
+  const middle = sorted.slice(1, sorted.length - 1);
+  const avg = middle.reduce((a, b) => a + b, 0) / middle.length;
   return Math.round(avg * 100) / 100;
 }
 
@@ -151,7 +152,18 @@ export async function upsertCompany(company: Partial<Company>): Promise<Company>
 
 export async function bulkUpsertCompanies(companies: Partial<Company>[]): Promise<void> {
   if (companies.length === 0) return;
-  const cleaned = companies.map(({ division, ...rest }: any) => rest);
+  const ids = companies.map(c => c.project_no).filter(Boolean) as string[];
+  const { data: existing } = await supabase
+    .from('startup_companies').select('project_no').in('project_no', ids);
+  const existingSet = new Set((existing || []).map((e: any) => e.project_no));
+
+  const cleaned = companies.map(({ division, ...rest }: any) => {
+    if (existingSet.has(rest.project_no)) {
+      const { stage, ...noStage } = rest;
+      return noStage;
+    }
+    return rest;
+  });
   for (let i = 0; i < cleaned.length; i += 100) {
     const chunk = cleaned.slice(i, i + 100);
     const { error } = await supabase
