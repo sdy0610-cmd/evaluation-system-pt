@@ -733,24 +733,25 @@ ${extraOpHtml}
                               </div>
                               <div className="divide-y divide-gray-100">
                                 {section.items.map(item => (
-                                  <div key={item.key} className="px-4 py-3">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <label className="text-xs text-gray-600">
-                                        {item.key}. {item.name}
-                                        <span className="ml-1 text-gray-400">(0~{item.max}점)</span>
-                                      </label>
-                                      <span className="text-sm font-bold text-blue-600 w-10 text-right">
-                                        {subScores[item.key] ?? 0}
-                                      </span>
-                                    </div>
+                                  <div key={item.key} className="px-4 py-3 flex items-center justify-between gap-3">
+                                    <label className="text-xs text-gray-600 flex-1">
+                                      {item.key}. {item.name}
+                                      <span className="ml-1 text-gray-400">(0~{item.max}점)</span>
+                                    </label>
                                     <input
-                                      type="range"
+                                      type="number"
                                       min="0"
                                       max={item.max}
-                                      step="0.5"
-                                      value={subScores[item.key] ?? 0}
-                                      onChange={e => setSubScore(item.key, parseFloat(e.target.value), item.max)}
-                                      className="w-full accent-blue-600"
+                                      step="0.1"
+                                      value={subScores[item.key] ?? ''}
+                                      onChange={e => {
+                                        const v = e.target.value;
+                                        if (v === '') { setSubScore(item.key, 0, item.max); return; }
+                                        const n = Math.round(parseFloat(v) * 10) / 10;
+                                        if (!isNaN(n)) setSubScore(item.key, n, item.max);
+                                      }}
+                                      placeholder="0"
+                                      className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                   </div>
                                 ))}
@@ -768,28 +769,19 @@ ${extraOpHtml}
                     {(selectedEvalType === '서류' ? docSections : presSections).length === 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">점수 (0~100점)</label>
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-3">
                           <input
-                            type="range"
+                            type="number"
                             min="0"
                             max="100"
-                            value={score || 0}
+                            step="0.1"
+                            value={score}
                             onChange={e => setScore(e.target.value)}
-                            className="w-full accent-blue-600"
+                            placeholder="0~100"
+                            className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={score}
-                              onChange={e => setScore(e.target.value)}
-                              placeholder="0~100"
-                              className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-500">점</span>
-                            {score && <span className="ml-auto text-2xl font-bold text-blue-700">{score}</span>}
-                          </div>
+                          <span className="text-sm text-gray-500">점</span>
+                          {score && <span className="ml-auto text-2xl font-bold text-blue-700">{score}</span>}
                         </div>
                       </div>
                     )}
