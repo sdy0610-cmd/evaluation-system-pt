@@ -656,7 +656,7 @@ ${extraOpHtml}
             </div>
 
             {/* Right: Evaluation form */}
-            <div className="w-full md:w-96 flex flex-col bg-white border-l border-gray-200 overflow-y-auto">
+            <div className="w-full md:w-[30rem] flex flex-col bg-white border-l border-gray-200 overflow-y-auto">
               <div className="px-6 py-5 border-b border-gray-100">
                 <div className="flex items-start justify-between">
                   <div>
