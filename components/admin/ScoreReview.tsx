@@ -5,7 +5,8 @@ import {
   upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore
 } from '../../services/api';
 import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting } from '../../types';
-import { X, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import GradeDashboard from './GradeDashboard';
 
 interface Props {
@@ -218,6 +219,30 @@ export default function ScoreReview({ year, user }: Props) {
     setCompanies(prev => prev.map(c => c.project_no === co.project_no ? { ...c, result: (result || null) as any } : c));
   }
 
+  function handleExportExcel() {
+    const rows: Record<string, unknown>[] = [];
+    companies.forEach((co, idx) => {
+      evaluators.forEach(ev => {
+        const evl = evaluations.find(e => e.company_id === co.project_no && e.evaluator_id === ev.id);
+        rows.push({
+          '과제번호': co.project_no,
+          '과제명': co.project_title,
+          '진행연차': year,
+          '과제진행순번': idx + 1,
+          '위원인력ID': ev.login_id || ev.id,
+          '위원명': ev.name,
+          '위원역할': ev.evaluator_order === 1 ? '평가위원장' : '평가위원',
+          '점수': evl ? (evl.adjusted_score ?? evl.score ?? '') : '',
+          '의견': evl?.comment || '',
+        });
+      });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'sheet');
+    XLSX.writeFile(wb, `평가결과_${year}_${evalType}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
   async function handleConfirmAll() {
     if (!confirm(`${evalType}평가 점수를 확정하시겠습니까? 확정 후 수정이 불가합니다.`)) return;
     setConfirming(true);
@@ -325,6 +350,12 @@ export default function ScoreReview({ year, user }: Props) {
               {advancing ? '이동 중...' : '발표평가 단계로 이동 →'}
             </button>
           )}
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700"
+          >
+            <Download size={14} />결과 엑셀 내보내기
+          </button>
           <button
             onClick={handleConfirmAll}
             disabled={confirming || totalWithScores === 0}
