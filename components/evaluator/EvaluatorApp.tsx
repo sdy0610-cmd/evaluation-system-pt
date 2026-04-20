@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const PRES_ORDER: Record<string, number> = {"20401269":4,"20402754":12,"20403700":9,"20403842":3,"20404406":9,"20404581":1,"20404954":2,"20405890":5,"20406455":3,"20406463":10,"20406894":1,"20407665":10,"20408825":10,"20408877":1,"20409229":4,"20409931":6,"20410202":3,"20410732":3,"20410913":11,"20412024":5,"20412297":4,"20412385":3,"20412766":1,"20413111":2,"20413200":12,"20413444":3,"20413666":8,"20413825":4,"20413968":1,"20413981":12,"20414096":1,"20414167":2,"20414230":13,"20414308":11,"20414625":1,"20414728":11,"20414883":3,"20414899":6,"20415322":13,"20415487":9,"20415499":8,"20415506":8,"20415588":1,"20415684":10,"20415817":3,"20415837":5,"20415839":2,"20415849":9,"20415851":3,"20415870":10,"20416056":3,"20416188":1,"20416208":11,"20416443":5,"20416502":10,"20416542":8,"20416668":11,"20416947":8,"20417238":8,"20417471":6,"20417534":2,"20417596":9,"20417599":2,"20417617":10,"20417675":5,"20417694":6,"20417697":10,"20417774":6,"20417896":7,"20418037":6,"20418175":4,"20418401":7,"20418458":11,"20418464":6,"20418471":11,"20418598":12,"20418609":8,"20418623":9,"20418691":3,"20418733":9,"20418814":1,"20418822":7,"20418903":8,"20419110":10,"20419166":12,"20419189":8,"20419192":9,"20419206":9,"20419317":4,"20419372":2,"20419387":11,"20419388":3,"20420108":6,"20420127":4,"20420270":8,"20420569":7,"20421734":4,"20421742":12,"20421952":9,"20422010":11,"20422710":4,"20423046":4,"20423136":4,"20423461":2,"20423821":10,"20424315":1,"20424483":4,"20424497":2,"20424540":8,"20424544":10,"20424587":2,"20424619":1,"20424645":3,"20424775":3,"20424839":6,"20424850":10,"20425290":8,"20425350":12,"20425527":11,"20425601":2,"20425607":6,"20425675":7,"20425711":2,"20425812":7,"20425817":3,"20426082":9,"20426148":1,"20426411":9,"20426658":7,"20426671":12,"20426680":11,"20426887":10,"20426937":8,"20427103":5,"20427459":12,"20427486":10,"20427490":10,"20427515":5,"20427563":5,"20427569":4,"20427590":10,"20428037":3,"20428115":9,"20428133":7,"20428258":7,"20428259":2,"20428287":8,"20428312":7,"20428346":2,"20428457":4,"20428574":4,"20428596":2,"20428639":10,"20428661":6,"20428674":12,"20428779":4,"20428829":5,"20428862":11,"20428934":5,"20428945":5,"20429004":12,"20429088":5,"20429144":11,"20429214":8,"20429253":6,"20429524":7,"20429573":7,"20429725":9,"20429808":5,"20429861":9,"20429923":5,"20429982":9,"20430098":7,"20430125":11,"20430270":1,"20430556":11,"20430558":12,"20430589":2,"20431043":7,"20431117":12,"20431469":1,"20431661":5,"20431696":2,"20431761":7,"20431875":9,"20431973":1,"20432254":8,"20432406":1,"20433135":11,"20439414":4,"20439651":12};
 import {
@@ -51,6 +51,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [allEvals, setAllEvals] = useState<Evaluation[]>([]);
   const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [showModalStats, setShowModalStats] = useState(false);
   const [extraOpinionFields, setExtraOpinionFields] = useState<ExtraOpinionField[]>([]);
 
@@ -239,13 +240,14 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   @media print{.no-print{display:none}}`;
 
   function openPrintWindow(pages: string, title: string) {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-<title>${title}</title><style>${printStyles}</style></head><body>
-<button class="no-print" onclick="window.print()" style="margin:10px;padding:8px 20px;background:#1a56db;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">인쇄</button>
-${pages}</body></html>`);
-    win.document.close();
+    const iframe = printIframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>${title}</title><style>${printStyles}</style></head><body>${pages}</body></html>`);
+    doc.close();
+    setTimeout(() => iframe.contentWindow?.print(), 300);
   }
 
   function handlePrintSingleCard(e: React.MouseEvent, co: Company) {
@@ -283,8 +285,8 @@ ${pages}</body></html>`);
     if (!selected || !selectedEv) return;
     const sc = selectedEv.adjusted_score ?? selectedEv.score ?? 0;
     const ss = selectedEv.sub_scores as Record<string, number> | undefined;
-    const win = window.open('', '_blank');
-    if (!win) return;
+    const iframe = printIframeRef.current;
+    if (!iframe) return;
     const activeSections = selectedEvalType === '서류' ? docSections : presSections;
     const xoPrint = (selectedEv.extra_opinions as Record<string, string>) || {};
     const rmMatchP = xoPrint['주력산업_일치여부'] || '';
@@ -301,15 +303,17 @@ ${pages}</body></html>`);
       ${sec.items.map(it => `<tr><td style="padding:3px 8px;padding-left:20px">${it.key}. ${it.name}</td><td style="text-align:center">${it.max}점</td><td style="text-align:center">${ss[it.key] ?? 0}점</td></tr>`).join('')}
     `).join('') : `<tr><td colspan="2">점수</td><td style="text-align:center">${sc}점</td></tr>`;
 
-    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <style>body{font-family:'Malgun Gothic',sans-serif;font-size:11px;margin:20px}
 h2{text-align:center;font-size:15px;margin-bottom:4px}
 .meta{text-align:center;font-size:11px;color:#555;margin-bottom:12px}
 table{width:100%;border-collapse:collapse;margin-bottom:12px}
 th,td{border:1px solid #999;padding:4px 6px}th{background:#eee}
-.sig{margin-top:30px;font-size:11px}.no-print{margin:10px}
-@media print{.no-print{display:none}}</style></head><body>
-<button class="no-print" onclick="window.print()">인쇄</button>
+.sig{margin-top:30px;font-size:11px}
+@media print{body{margin:10px}}</style></head><body>
 <h2>${user.year}년도 창업중심대학 참여기업 선발 발표평가표</h2>
 <div class="meta">분과: ${user.division?.division_name} &nbsp;|&nbsp; 평가위원: 위원${user.evaluator_order} ${user.name}</div>
 <table>
@@ -329,7 +333,8 @@ ${extraOpHtml}
   <p>평가일: ${dateStr.replace(/-/g, '년 ').replace(/년 (\d+)년 (\d+)$/, '년 $1월 $2일')}</p>
   <p>소속: ${user.organization || ''} &nbsp;&nbsp; 직위: ${user.position || ''} &nbsp;&nbsp; 평가위원: ${user.name} &nbsp;&nbsp;&nbsp;&nbsp; (서명)</p>
 </div></body></html>`);
-    win.document.close();
+    doc.close();
+    setTimeout(() => iframe.contentWindow?.print(), 300);
   }
 
   function setSubScore(key: string, val: number, max: number) {
@@ -460,6 +465,7 @@ ${extraOpHtml}
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <iframe ref={printIframeRef} style={{ display: 'none' }} title="print-frame" />
       {/* Print date picker modal */}
       {printDateModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">

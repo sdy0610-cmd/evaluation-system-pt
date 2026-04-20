@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   getCompanies, getDivisions, getEvaluators, getEvaluations, getEvalCriteria,
 } from '../../services/api';
@@ -110,6 +110,7 @@ export default function PrintCenter({ year, user }: Props) {
   const todayStr = () => new Date().toISOString().slice(0, 10);
   const [printDate, setPrintDate] = useState(todayStr);
   const [printDateModal, setPrintDateModal] = useState<{ company?: Company } | null>(null);
+  const printIframeRef = useRef<HTMLIFrameElement>(null);
 
   function setDraftField<K extends keyof PrintTemplate>(key: K, value: PrintTemplate[K]) {
     setDraft(prev => ({ ...prev, [key]: value }));
@@ -297,14 +298,18 @@ ${pages.join('\n')}
     const modal = printDateModal;
     setPrintDateModal(null);
     if (!modal) return;
-    const win = window.open('', '_blank');
-    if (!win) return;
+    const iframe = printIframeRef.current;
+    if (!iframe) return;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open();
     if (modal.company) {
-      win.document.write(buildPrintHtml([modal.company], getEvsForCompany(modal.company.project_no), dateStr));
+      doc.write(buildPrintHtml([modal.company], getEvsForCompany(modal.company.project_no), dateStr));
     } else {
-      win.document.write(buildPrintHtml(companies, evaluators, dateStr));
+      doc.write(buildPrintHtml(companies, evaluators, dateStr));
     }
-    win.document.close();
+    doc.close();
+    setTimeout(() => iframe.contentWindow?.print(), 300);
   }
 
   function openModal() {
@@ -329,6 +334,7 @@ ${pages.join('\n')}
 
   return (
     <div className="p-8">
+      <iframe ref={printIframeRef} style={{ display: 'none' }} title="print-frame" />
       {printDateModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-80">
