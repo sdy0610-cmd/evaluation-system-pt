@@ -8,9 +8,10 @@ interface Props {
   finalScores: Record<string, number>;
   divisions: Division[];
   showDivisions?: boolean;
+  compact?: boolean;
 }
 
-export default function GradeDashboard({ grades, companies, finalScores, divisions, showDivisions = true }: Props) {
+export default function GradeDashboard({ grades, companies, finalScores, divisions, showDivisions = true, compact = false }: Props) {
   if (grades.length === 0) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700 mb-6">
@@ -50,72 +51,84 @@ export default function GradeDashboard({ grades, companies, finalScores, divisio
 
   const lowestMin = sortedGrades[sortedGrades.length - 1]?.min_score ?? 0;
 
+  const cell = compact ? 'px-3 py-1.5' : 'px-4 py-2.5';
+  const headerCell = compact ? 'px-3 py-1.5 text-xs font-medium' : 'px-4 py-2.5 text-xs font-medium';
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
-        <h2 className="font-semibold text-gray-900">등급 분포 현황</h2>
-        <div className="flex items-center gap-4 text-sm">
+    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${compact ? '' : 'mb-6'}`}>
+      {!compact && (
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+          <h2 className="font-semibold text-gray-900">등급 분포 현황</h2>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-gray-500">선정 합계 <span className="font-bold text-blue-700">{selTotal}개</span></span>
+            <span className="text-blue-500 font-medium">청년 {selYouth}명</span>
+            <span className="text-orange-500 font-medium">중장년 {selMiddle}명</span>
+          </div>
+        </div>
+      )}
+      {compact && (
+        <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-end gap-3 text-xs">
           <span className="text-gray-500">선정 합계 <span className="font-bold text-blue-700">{selTotal}개</span></span>
           <span className="text-blue-500 font-medium">청년 {selYouth}명</span>
           <span className="text-orange-500 font-medium">중장년 {selMiddle}명</span>
         </div>
-      </div>
+      )}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr className="bg-gray-50">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">등급</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">기준점수</th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500">선정</th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-blue-600 bg-blue-50">전체</th>
+              <th className={`${headerCell} text-left text-gray-500`}>등급</th>
+              <th className={`${headerCell} text-left text-gray-500`}>기준점수</th>
+              <th className={`${headerCell} text-center text-gray-500`}>선정</th>
+              <th className={`${headerCell} text-center text-blue-600 bg-blue-50`}>전체</th>
               {showDivisions && divisions.map(d => (
                 <th key={d.id} title={d.division_name}
-                  className="py-2.5 text-center font-medium text-gray-500 w-14"
-                  style={{ fontSize: d.division_name.length > 6 ? '9px' : d.division_name.length > 4 ? '10px' : '11px', lineHeight: '1.3', whiteSpace: 'normal', wordBreak: 'keep-all', padding: '6px 4px' }}>
+                  className="text-center font-medium text-gray-500 w-14"
+                  style={{ fontSize: d.division_name.length > 6 ? '9px' : d.division_name.length > 4 ? '10px' : '11px', lineHeight: '1.3', whiteSpace: 'normal', wordBreak: 'keep-all', padding: compact ? '4px 3px' : '6px 4px' }}>
                   {d.division_name}
                 </th>
               ))}
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-blue-500">청년</th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-orange-500">중장년</th>
+              <th className={`${headerCell} text-center text-blue-500`}>청년</th>
+              <th className={`${headerCell} text-center text-orange-500`}>중장년</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r, i) => (
               <tr key={i} className={r.grade?.is_selected ? 'bg-green-50' : 'hover:bg-gray-50'}>
-                <td className="px-4 py-2.5">
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                <td className={cell}>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
                     r.grade?.is_selected ? 'bg-green-100 text-green-700' :
                     r.grade ? 'bg-gray-100 text-gray-600' : 'bg-red-50 text-red-400'
                   }`}>
                     {r.grade?.grade_name ?? '미해당'}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 text-xs text-gray-500">
+                <td className={`${cell} text-gray-500`}>
                   {r.grade ? `${r.grade.min_score}점 이상` : `${lowestMin - 1}점 미만`}
                 </td>
-                <td className="px-4 py-2.5 text-center">
+                <td className={`${cell} text-center`}>
                   {r.grade?.is_selected
-                    ? <span className="text-green-600 text-xs font-medium">✓ 선정</span>
-                    : <span className="text-gray-300 text-xs">-</span>}
+                    ? <span className="text-green-600 font-medium">✓ 선정</span>
+                    : <span className="text-gray-300">-</span>}
                 </td>
-                <td className="px-4 py-2.5 text-center font-bold text-blue-700 bg-blue-50">{r.total}</td>
+                <td className={`${cell} text-center font-bold text-blue-700 bg-blue-50`}>{r.total}</td>
                 {showDivisions && divisions.map(d => (
-                  <td key={d.id} className="py-2.5 text-center text-gray-600 text-xs w-14">{r.byDiv[d.id] || 0}</td>
+                  <td key={d.id} className={`${compact ? 'py-1.5' : 'py-2.5'} text-center text-gray-600 w-14`}>{r.byDiv[d.id] || 0}</td>
                 ))}
-                <td className="px-4 py-2.5 text-center text-blue-600 font-medium">{r.youth > 0 ? r.youth : <span className="text-gray-300">-</span>}</td>
-                <td className="px-4 py-2.5 text-center text-orange-600 font-medium">{r.middle > 0 ? r.middle : <span className="text-gray-300">-</span>}</td>
+                <td className={`${cell} text-center text-blue-600 font-medium`}>{r.youth > 0 ? r.youth : <span className="text-gray-300">-</span>}</td>
+                <td className={`${cell} text-center text-orange-600 font-medium`}>{r.middle > 0 ? r.middle : <span className="text-gray-300">-</span>}</td>
               </tr>
             ))}
             <tr className="bg-gray-50 border-t-2 border-gray-200 font-semibold">
-              <td className="px-4 py-2.5 text-gray-700 text-xs" colSpan={3}>합계</td>
-              <td className="px-4 py-2.5 text-center text-blue-700 bg-blue-50">{scoredCos.length}</td>
+              <td className={`${cell} text-gray-700`} colSpan={3}>합계</td>
+              <td className={`${cell} text-center text-blue-700 bg-blue-50`}>{scoredCos.length}</td>
               {showDivisions && divisions.map(d => (
-                <td key={d.id} className="py-2.5 text-center text-gray-600 text-xs w-14">
+                <td key={d.id} className={`${compact ? 'py-1.5' : 'py-2.5'} text-center text-gray-600 w-14`}>
                   {rows.reduce((s, r) => s + (r.byDiv[d.id] || 0), 0)}
                 </td>
               ))}
-              <td className="px-4 py-2.5 text-center text-blue-600">{rows.reduce((s, r) => s + r.youth, 0)}</td>
-              <td className="px-4 py-2.5 text-center text-orange-600">{rows.reduce((s, r) => s + r.middle, 0)}</td>
+              <td className={`${cell} text-center text-blue-600`}>{rows.reduce((s, r) => s + r.youth, 0)}</td>
+              <td className={`${cell} text-center text-orange-600`}>{rows.reduce((s, r) => s + r.middle, 0)}</td>
             </tr>
           </tbody>
         </table>

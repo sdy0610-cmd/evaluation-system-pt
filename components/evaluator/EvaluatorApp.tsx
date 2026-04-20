@@ -629,7 +629,7 @@ ${extraOpHtml}
                         <X size={16} />
                       </button>
                     </div>
-                    <div className="p-4 overflow-y-auto max-h-80">
+                    <div className="p-3">
                       {(() => {
                         const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
                         const finalScores: Record<string, number> = {};
@@ -642,7 +642,7 @@ ${extraOpHtml}
                           const avg = calculateAvgScore(scores);
                           if (avg > 0) finalScores[co.project_no] = avg;
                         });
-                        return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
+                        return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} compact />;
                       })()}
                     </div>
                   </div>
