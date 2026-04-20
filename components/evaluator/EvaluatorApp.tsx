@@ -553,7 +553,7 @@ ${extraOpHtml}
         <div className="fixed inset-0 bg-black/60 z-50 flex">
           <div className="flex flex-col bg-white w-full h-full md:flex-row">
             {/* Left: PDF viewer */}
-            <div className="flex-1 bg-gray-800 flex flex-col">
+            <div className="flex-1 bg-gray-800 flex flex-col relative">
               <div className="flex flex-col bg-gray-900">
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -614,22 +614,33 @@ ${extraOpHtml}
                 )}
               </div>
               {showModalStats && (
-                <div className="bg-white border-b border-gray-200 overflow-y-auto max-h-72 p-3">
-                  {(() => {
-                    const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
-                    const finalScores: Record<string, number> = {};
-                    companies.forEach(co => {
-                      const evalType = getActiveEvalType(co);
-                      const scores = divEvs.map(ev => {
-                        const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
-                        return e ? (e.adjusted_score ?? e.score ?? null) : null;
-                      });
-                      const avg = calculateAvgScore(scores);
-                      if (avg > 0) finalScores[co.project_no] = avg;
-                    });
-                    return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
-                  })()}
-                </div>
+                <>
+                  <div className="absolute inset-0 z-10" onClick={() => setShowModalStats(false)} />
+                  <div className="absolute top-12 left-4 right-4 z-20 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <span className="font-semibold text-gray-800 text-sm">등급 분포 현황</span>
+                      <button onClick={() => setShowModalStats(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="p-4 overflow-y-auto max-h-80">
+                      {(() => {
+                        const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+                        const finalScores: Record<string, number> = {};
+                        companies.forEach(co => {
+                          const evalType = getActiveEvalType(co);
+                          const scores = divEvs.map(ev => {
+                            const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
+                            return e ? (e.adjusted_score ?? e.score ?? null) : null;
+                          });
+                          const avg = calculateAvgScore(scores);
+                          if (avg > 0) finalScores[co.project_no] = avg;
+                        });
+                        return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
+                      })()}
+                    </div>
+                  </div>
+                </>
               )}
               {pdfUrl ? (
                 <iframe src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`} className="flex-1 w-full" title="사업계획서" />
