@@ -523,12 +523,16 @@ const COL_MAP: Record<string, string> = {
   '과제번호': 'project_no',
   '대표자명': 'representative',
   '평가기준': 'startup_stage',
+  '업력': 'startup_stage',           // 실제 업로드 양식 컬럼명
   '모집공고': 'recruit_type',
+  '지원유형(모집공고)': 'recruit_type', // 실제 업로드 양식 컬럼명
+  '지원유형': 'recruit_type',
   '청/중장년': 'age_group',
   '성별': 'gender',
   '이메일': 'email',
   '로그인ID': 'login_id',
   '연락처': 'contact_phone',
+  '사원수(고용)': 'employees',        // 실제 업로드 양식 컬럼명
   '휴대전화': 'contact_mobile',
   '자택주소': 'address',
   '과제명': 'project_title',
