@@ -611,8 +611,8 @@ export default function ScoreReview({ year, user }: Props) {
                     </div>
                   </th>
                   <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-200 whitespace-nowrap tracking-wide">등급</th>
+                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-200 whitespace-nowrap tracking-wide">불참</th>
                   {[
-                    { key: 'knockout', label: '과락' },
                     { key: 'result',   label: '결과' },
                     { key: 'opinion',  label: '평가의견' },
                     { key: 'confirmed', label: '확정' },
@@ -660,28 +660,7 @@ export default function ScoreReview({ year, user }: Props) {
                       <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {co.division?.division_name || '-'}
                       </td>
-                      <td className="px-2 py-3 text-xs whitespace-nowrap">
-                        {(() => {
-                          const isAbsent = selectedDivId && evaluators.length > 0 &&
-                            row.evals.filter(ev => ev !== null).length > 0 &&
-                            row.evals.filter(ev => ev !== null).every(ev => ev?.comment === '불참' && ev?.score === 0);
-                          return (
-                            <div className="flex items-center gap-1.5">
-                              <span className={`font-medium ${isAbsent ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{co.representative}</span>
-                              {isAbsent
-                                ? <button onClick={() => handleUnmarkAbsent(row)} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded font-medium hover:bg-red-200 transition-colors" title="불참 취소">불참 ✕</button>
-                                : selectedDivId && !row.allConfirmed && (
-                                  <button
-                                    onClick={() => handleMarkAbsent(row)}
-                                    className="px-1.5 py-0.5 text-xs text-gray-400 border border-gray-300 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
-                                    title="불참 처리"
-                                  >불참</button>
-                                )
-                              }
-                            </div>
-                          );
-                        })()}
-                      </td>
+                      <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
                       <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap" title={co.recruit_type || ''}>
                         {co.recruit_type ? co.recruit_type.slice(0, 2) : '-'}
                       </td>
@@ -764,19 +743,18 @@ export default function ScoreReview({ year, user }: Props) {
                         ) : <span className="text-gray-300 text-xs">-</span>; })()}
                       </td>
                       <td className="px-3 py-3 text-center">
-                        <button
-                          onClick={() => {
-                            const nonConfirmedEv = row.evals.find(ev => ev && !ev.is_confirmed);
-                            if (nonConfirmedEv) handleToggleKnockout(nonConfirmedEv);
-                          }}
-                          className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                            row.hasKnockout
-                              ? 'bg-red-500 text-white hover:bg-red-600'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          {row.hasKnockout ? '과락' : '-'}
-                        </button>
+                        {(() => {
+                          const isAbsent = selectedDivId && evaluators.length > 0 &&
+                            row.evals.filter(ev => ev !== null).length > 0 &&
+                            row.evals.filter(ev => ev !== null).every(ev => ev?.comment === '불참' && ev?.score === 0);
+                          return isAbsent ? (
+                            <button onClick={() => handleUnmarkAbsent(row)} className="px-2 py-0.5 bg-red-500 text-white text-xs rounded font-medium hover:bg-red-600 transition-colors" title="클릭하여 불참 취소">불참 ✕</button>
+                          ) : selectedDivId && !row.allConfirmed ? (
+                            <button onClick={() => handleMarkAbsent(row)} className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded hover:bg-red-50 hover:text-red-600 transition-colors">-</button>
+                          ) : (
+                            <span className="text-gray-300 text-xs">-</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <select
