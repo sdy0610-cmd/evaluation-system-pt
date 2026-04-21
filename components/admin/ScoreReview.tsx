@@ -124,7 +124,7 @@ export default function ScoreReview({ year, user }: Props) {
       );
 
       const scores: (number | null)[] = evals.map(ev => {
-        if (!ev) return null;
+        if (!ev || ev.is_avoidance) return null;
         return ev.adjusted_score ?? ev.score ?? null;
       });
 
@@ -626,11 +626,13 @@ export default function ScoreReview({ year, user }: Props) {
                               key={`ev-cell-${evIdx}`}
                               style={!selectedDivId ? { width: 48, minWidth: 48 } : undefined}
                               className={`px-1 py-3 text-center ${
-                                selectedDivId && !evaluation?.is_confirmed && evaluation ? 'cursor-pointer hover:bg-blue-50' : ''
-                              } ${evaluation?.is_knockout ? 'bg-red-100' : ''}`}
-                              onClick={() => selectedDivId && evaluation && !evaluation.is_confirmed && openAdjModal(evaluation, co)}
+                                selectedDivId && !evaluation?.is_confirmed && evaluation && !evaluation.is_avoidance ? 'cursor-pointer hover:bg-blue-50' : ''
+                              } ${evaluation?.is_knockout ? 'bg-red-100' : ''} ${evaluation?.is_avoidance ? 'bg-orange-50' : ''}`}
+                              onClick={() => selectedDivId && evaluation && !evaluation.is_confirmed && !evaluation.is_avoidance && openAdjModal(evaluation, co)}
                             >
-                              {displayScore !== null && displayScore !== undefined ? (
+                              {evaluation?.is_avoidance ? (
+                                <span className="text-xs font-medium text-orange-600">회피</span>
+                              ) : displayScore !== null && displayScore !== undefined ? (
                                 <div className="space-y-0.5">
                                   {hasAdj && (
                                     <div className="text-xs text-gray-400 line-through">{origScore}</div>

@@ -104,6 +104,7 @@ export interface Evaluation {
   extra_opinions?: Record<string, string>;
   region_match?: boolean;
   region_match_comment?: string;
+  is_avoidance?: boolean;
   evaluator?: Pick<Evaluator, 'id' | 'name' | 'evaluator_order'>;
 }
 

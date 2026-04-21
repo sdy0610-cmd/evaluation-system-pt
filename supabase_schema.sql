@@ -110,8 +110,11 @@ CREATE TABLE IF NOT EXISTS startup_evaluations (
   is_confirmed       BOOLEAN DEFAULT FALSE,
   confirmed_at       TIMESTAMPTZ,
   submitted_at       TIMESTAMPTZ DEFAULT NOW(),
+  is_avoidance       BOOLEAN DEFAULT FALSE,   -- 회피 처리 여부
   UNIQUE(company_id, evaluator_id, evaluation_type)
 );
+-- 신규 컬럼 추가 마이그레이션 (기존 DB에 실행):
+-- ALTER TABLE startup_evaluations ADD COLUMN IF NOT EXISTS is_avoidance BOOLEAN DEFAULT FALSE;
 
 -- =============================================
 -- Storage 버킷: Supabase Dashboard > Storage 에서 수동 생성

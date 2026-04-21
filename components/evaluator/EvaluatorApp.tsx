@@ -64,6 +64,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [regionMatch, setRegionMatch] = useState<'일치' | '불일치' | null>(null);
   const [regionMatchComment, setRegionMatchComment] = useState('');
   const [extraOpinions, setExtraOpinions] = useState<Record<string, string>>({});
+  const [isAvoidance, setIsAvoidance] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
   const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -148,6 +149,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
         setScore(ev?.score !== undefined && ev?.score !== null ? String(ev.score) : '');
       }
       setComment(ev?.comment || '');
+      setIsAvoidance(ev?.is_avoidance || false);
       const xo = (ev?.extra_opinions as Record<string, string>) || {};
       setRegionMatch((xo['주력산업_일치여부'] as '일치' | '불일치') || null);
       setRegionMatchComment(xo['주력산업_의견'] || '');
@@ -156,6 +158,7 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
       setScore('');
       setSubScores({});
       setComment('');
+      setIsAvoidance(false);
       setRegionMatch(null);
       setRegionMatchComment('');
       setExtraOpinions({});
@@ -353,8 +356,8 @@ ${extraOpHtml}
     if (!selected) return;
     const evalType = getActiveEvalType(selected);
     if (!evalType) return;
-    const sc = parseFloat(score);
-    if (isNaN(sc) || sc < 0 || sc > 100) {
+    const sc = isAvoidance ? 0 : parseFloat(score);
+    if (!isAvoidance && (isNaN(sc) || sc < 0 || sc > 100)) {
       alert('0~100 사이의 점수를 입력하세요.');
       return;
     }
@@ -370,9 +373,10 @@ ${extraOpHtml}
         evaluator_id: user.id,
         evaluation_type: evalType,
         score: sc,
-        sub_scores: Object.keys(subScores).length > 0 ? subScores : undefined,
-        comment: comment.trim() || undefined,
-        extra_opinions: (() => {
+        is_avoidance: isAvoidance,
+        sub_scores: isAvoidance ? undefined : (Object.keys(subScores).length > 0 ? subScores : undefined),
+        comment: isAvoidance ? '회피' : (comment.trim() || undefined),
+        extra_opinions: isAvoidance ? undefined : (() => {
           const xo: Record<string, string> = {};
           if (regionMatch) xo['주력산업_일치여부'] = regionMatch;
           if (regionMatchComment.trim()) xo['주력산업_의견'] = regionMatchComment.trim();
@@ -407,6 +411,7 @@ ${extraOpHtml}
       setScore('');
       setSubScores({});
       setComment('');
+      setIsAvoidance(false);
       setRegionMatch(null);
       setRegionMatchComment('');
     } catch (e) {
@@ -745,11 +750,33 @@ ${extraOpHtml}
                 {isConfirmed ? (
                   <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
                     이 평가는 확정되어 수정할 수 없습니다.
-                    <div className="mt-2 font-bold text-lg">{selectedEv?.adjusted_score ?? selectedEv?.score}점</div>
+                    <div className="mt-2 font-bold text-lg">
+                      {selectedEv?.is_avoidance ? '회피 처리' : `${selectedEv?.adjusted_score ?? selectedEv?.score}점`}
+                    </div>
                   </div>
                 ) : (
                   <>
-                    {(() => {
+                    {/* 회피 toggle */}
+                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${isAvoidance ? 'bg-orange-50 border-orange-300' : 'bg-gray-50 border-gray-200'}`}>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-700">회피 신고</div>
+                        <div className="text-xs text-gray-400 mt-0.5">이해충돌 등 사유로 평가 불가 시 체크</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAvoidance(v => !v)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isAvoidance ? 'bg-orange-500' : 'bg-gray-300'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isAvoidance ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {isAvoidance && (
+                      <div className="flex items-center gap-2 px-4 py-3 bg-orange-100 border border-orange-300 rounded-xl text-sm text-orange-800">
+                        <span className="text-lg">⚠️</span>
+                        <span>회피 처리됩니다. 점수 0점, 평가의견 "회피"로 저장됩니다.</span>
+                      </div>
+                    )}
+                    {!isAvoidance && (() => {
                       const activeSections = selectedEvalType === '서류' ? docSections : presSections;
                       return activeSections.length > 0 ? (
                       <div className="space-y-4">
@@ -800,7 +827,7 @@ ${extraOpHtml}
                       </div>
                       ) : null;
                     })()}
-                    {(selectedEvalType === '서류' ? docSections : presSections).length === 0 && (
+                    {!isAvoidance && (selectedEvalType === '서류' ? docSections : presSections).length === 0 && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">점수 (0~100점)</label>
                         <div className="flex items-center gap-3">
@@ -820,6 +847,7 @@ ${extraOpHtml}
                       </div>
                     )}
 
+                    {!isAvoidance && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         평가의견 <span className="text-gray-400 font-normal">(선택사항)</span>
@@ -833,8 +861,9 @@ ${extraOpHtml}
                       />
                       <div className="text-right text-xs text-gray-400 mt-1">{comment.length}자</div>
                     </div>
+                    )}
 
-                    {selected?.recruit_type?.includes('대학발') && (
+                    {!isAvoidance && selected?.recruit_type?.includes('대학발') && (
                       <div className="border border-indigo-200 rounded-xl p-4 bg-indigo-50 space-y-3">
                         <div className="text-sm font-semibold text-indigo-800">대학발 주력산업 일치여부</div>
                         <div className="flex gap-2">
@@ -885,10 +914,10 @@ ${extraOpHtml}
                       </button>
                       <button
                         onClick={handleSubmit}
-                        disabled={submitting || !score || parseFloat(score) === 0}
-                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        disabled={submitting || (!isAvoidance && score === '')}
+                        className={`flex-1 py-3 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${isAvoidance ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}
                       >
-                        {submitting ? '저장 중...' : selectedEv ? '수정 저장' : '평가 제출'}
+                        {submitting ? '저장 중...' : isAvoidance ? '회피 처리 저장' : selectedEv ? '수정 저장' : '평가 제출'}
                       </button>
                     </div>
                     {selectedEv && (
@@ -973,6 +1002,8 @@ ${extraOpHtml}
                 className={`text-left p-5 rounded-xl border-2 transition-all hover:shadow-md ${
                   confirmed
                     ? 'border-green-300 bg-green-50'
+                    : ev?.is_avoidance
+                    ? 'border-orange-300 bg-orange-50'
                     : done
                     ? 'border-blue-300 bg-blue-50'
                     : 'border-gray-200 bg-white hover:border-blue-300'
@@ -987,6 +1018,8 @@ ${extraOpHtml}
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
                         <CheckCircle size={10} />확정
                       </span>
+                    ) : ev?.is_avoidance ? (
+                      <span className="px-2 py-0.5 bg-orange-500 text-white text-xs rounded-full font-medium">회피</span>
                     ) : done ? (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">
                         <CheckCircle size={10} />완료
@@ -1021,7 +1054,7 @@ ${extraOpHtml}
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {ev && ev.score !== undefined && (
+                    {ev && !ev.is_avoidance && ev.score !== undefined && (
                       <span className="font-bold text-blue-700 text-base whitespace-nowrap">{ev.adjusted_score ?? ev.score}점</span>
                     )}
                     <button
