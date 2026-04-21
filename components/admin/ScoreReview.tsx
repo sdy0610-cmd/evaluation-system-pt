@@ -2,10 +2,29 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   getDivisions, getCompanies, getEvaluators, getEvaluations,
   getBonusPointsBulk, adjustScore, confirmEvaluations, updateCompany,
-  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore
+  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria
 } from '../../services/api';
-import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting } from '../../types';
-import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting, EvalCriterion } from '../../types';
+import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download, Edit2 } from 'lucide-react';
+
+interface CriteriaSection {
+  section: number;
+  name: string;
+  total: number;
+  items: { key: string; name: string; max: number }[];
+}
+
+function buildSections(items: EvalCriterion[]): CriteriaSection[] {
+  const map: Record<number, CriteriaSection> = {};
+  items.forEach(c => {
+    if (!map[c.section_no]) map[c.section_no] = { section: c.section_no, name: c.section_name, total: 0, items: [] };
+    map[c.section_no].items.push({ key: c.item_key, name: c.item_name, max: c.item_max });
+    map[c.section_no].total += c.item_max;
+  });
+  return Object.values(map)
+    .sort((a, b) => a.section - b.section)
+    .map(s => ({ ...s, items: s.items.sort((a, b) => a.key.localeCompare(b.key)) }));
+}
 import * as XLSX from 'xlsx';
 import GradeDashboard from './GradeDashboard';
 
@@ -51,10 +70,15 @@ export default function ScoreReview({ year, user }: Props) {
   const [gradeRecruitFilter, setGradeRecruitFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [advancingSelected, setAdvancingSelected] = useState(false);
+  const [criteria, setCriteria] = useState<{ doc: CriteriaSection[]; pres: CriteriaSection[] }>({ doc: [], pres: [] });
+  const [scoreDetailModal, setScoreDetailModal] = useState<{ ev: Evaluation; company: Company } | null>(null);
 
   useEffect(() => {
     getDivisions(year).then(setDivisions);
     getGradeSettings(year).then(setGrades);
+    Promise.all([getEvalCriteria(year, '서류'), getEvalCriteria(year, '발표')]).then(([doc, pres]) => {
+      setCriteria({ doc: buildSections(doc as EvalCriterion[]), pres: buildSections(pres as EvalCriterion[]) });
+    });
   }, [year]);
 
   useEffect(() => {
@@ -626,9 +650,9 @@ export default function ScoreReview({ year, user }: Props) {
                               key={`ev-cell-${evIdx}`}
                               style={!selectedDivId ? { width: 48, minWidth: 48 } : undefined}
                               className={`px-1 py-3 text-center ${
-                                selectedDivId && !evaluation?.is_confirmed && evaluation && !evaluation.is_avoidance ? 'cursor-pointer hover:bg-blue-50' : ''
+                                selectedDivId && evaluation && !evaluation.is_avoidance ? 'cursor-pointer hover:bg-blue-50' : ''
                               } ${evaluation?.is_knockout ? 'bg-red-100' : ''} ${evaluation?.is_avoidance ? 'bg-orange-50' : ''}`}
-                              onClick={() => selectedDivId && evaluation && !evaluation.is_confirmed && !evaluation.is_avoidance && openAdjModal(evaluation, co)}
+                              onClick={() => selectedDivId && evaluation && !evaluation.is_avoidance && setScoreDetailModal({ ev: evaluation, company: co })}
                             >
                               {evaluation?.is_avoidance ? (
                                 <span className="text-xs font-medium text-orange-600">회피</span>
@@ -740,6 +764,90 @@ export default function ScoreReview({ year, user }: Props) {
           </div>
         </div>
       )}
+
+      {/* Score Detail Modal */}
+      {scoreDetailModal && (() => {
+        const { ev, company } = scoreDetailModal;
+        const ss = ev.sub_scores as Record<string, number> | undefined;
+        const sections = evalType === '서류' ? criteria.doc : criteria.pres;
+        const displayScore = ev.adjusted_score ?? ev.score ?? 0;
+        const hasAdj = ev.adjusted_score !== null && ev.adjusted_score !== undefined;
+        const evaluatorName = ev.evaluator?.name || '위원';
+        const evaluatorOrder = ev.evaluator?.evaluator_order;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-400">{company.project_no}</p>
+                  <h3 className="font-bold text-gray-900 text-sm leading-tight">{company.project_title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {evaluatorOrder ? `위원${evaluatorOrder} ` : ''}{evaluatorName} · {evalType}평가
+                    {ev.is_confirmed && <span className="ml-1.5 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">확정됨</span>}
+                  </p>
+                </div>
+                <button onClick={() => setScoreDetailModal(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+              </div>
+              <div className="overflow-y-auto flex-1 px-6 py-4 space-y-3">
+                {sections.length > 0 && ss && Object.keys(ss).length > 0 ? (
+                  <>
+                    {sections.map(sec => {
+                      const secTotal = sec.items.reduce((s, it) => s + (ss[it.key] ?? 0), 0);
+                      return (
+                        <div key={sec.section} className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                            <span className="text-xs font-semibold text-gray-700">{sec.section}. {sec.name}</span>
+                            <span className="text-xs font-bold text-blue-700">{secTotal} / {sec.total}점</span>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {sec.items.map(item => (
+                              <div key={item.key} className="flex items-center justify-between px-4 py-2">
+                                <span className="text-xs text-gray-600 flex-1">{item.key}. {item.name}</span>
+                                <span className="text-xs text-gray-400 mr-3">/{item.max}점</span>
+                                <span className={`text-sm font-bold w-10 text-right ${ss[item.key] !== undefined ? 'text-blue-700' : 'text-gray-300'}`}>
+                                  {ss[item.key] !== undefined ? ss[item.key] : '-'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-4">항목별 점수 기록 없음</div>
+                )}
+                {ev.comment && (
+                  <div className="border border-gray-200 rounded-xl p-3">
+                    <div className="text-xs font-semibold text-gray-500 mb-1">평가의견</div>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{ev.comment}</div>
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700">최종 점수</span>
+                  <div className="text-right">
+                    {hasAdj && <div className="text-xs text-gray-400 line-through">{ev.score}점 (원점수)</div>}
+                    <span className={`text-2xl font-bold ${hasAdj ? 'text-blue-700' : 'text-gray-900'}`}>{displayScore}점</span>
+                    {hasAdj && ev.adjustment_reason && (
+                      <div className="text-xs text-orange-600 mt-0.5">수정사유: {ev.adjustment_reason}</div>
+                    )}
+                  </div>
+                </div>
+                {!ev.is_confirmed && (
+                  <button
+                    onClick={() => { setScoreDetailModal(null); openAdjModal(ev, company); }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                  >
+                    <Edit2 size={14} />점수 수정
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Score Adjustment Modal */}
       {adjModal && (
