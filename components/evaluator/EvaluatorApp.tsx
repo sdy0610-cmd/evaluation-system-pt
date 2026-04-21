@@ -51,8 +51,10 @@ export default function EvaluatorApp({ user, onLogout }: Props) {
   const [allEvals, setAllEvals] = useState<Evaluation[]>([]);
   const [allEvaluators, setAllEvaluators] = useState<Evaluator[]>([]);
   const [showStats, setShowStats] = useState(false);
+  const [statsRecruitFilter, setStatsRecruitFilter] = useState('');
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [showModalStats, setShowModalStats] = useState(false);
+  const [modalStatsRecruitFilter, setModalStatsRecruitFilter] = useState('');
   const [extraOpinionFields, setExtraOpinionFields] = useState<ExtraOpinionField[]>([]);
 
   // Evaluation form state
@@ -527,29 +529,42 @@ ${extraOpHtml}
       {showStats && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowStats(false)} />
-          <div className="fixed top-16 right-4 z-50 w-[680px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+          <div className="fixed top-16 right-4 z-50 w-[600px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <span className="font-semibold text-gray-800 text-sm">등급 분포 현황</span>
+              <span className="font-semibold text-gray-800 text-sm">등급 분포 현황 <span className="text-xs text-gray-400 font-normal ml-1">(내 점수 기준)</span></span>
               <button onClick={() => setShowStats(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X size={16} />
               </button>
             </div>
-            <div className="p-4 overflow-y-auto max-h-[calc(100vh-8rem)]">
-              {(() => {
-                const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
-                const finalScores: Record<string, number> = {};
-                companies.forEach(co => {
-                  const evalType = getActiveEvalType(co);
-                  const scores = divEvs.map(ev => {
-                    const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
-                    return e ? (e.adjusted_score ?? e.score ?? null) : null;
-                  });
-                  const avg = calculateAvgScore(scores);
-                  if (avg > 0) finalScores[co.project_no] = avg;
-                });
-                return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} />;
-              })()}
-            </div>
+            {(() => {
+              const recruitTypes = [...new Set(companies.map(c => c.recruit_type).filter(Boolean))].sort();
+              const finalScores: Record<string, number> = {};
+              companies.forEach(co => {
+                const evalType = getActiveEvalType(co);
+                const ev = evaluations.find(e => e.company_id === co.project_no && (!evalType || e.evaluation_type === evalType));
+                const score = ev ? (ev.adjusted_score ?? ev.score ?? 0) : 0;
+                if (score > 0) finalScores[co.project_no] = score;
+              });
+              const filteredCos = statsRecruitFilter ? companies.filter(c => c.recruit_type === statsRecruitFilter) : companies;
+              return (
+                <>
+                  {recruitTypes.length > 1 && (
+                    <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-400">모집공고</span>
+                      {['', ...recruitTypes].map(rt => (
+                        <button key={rt}
+                          onClick={() => setStatsRecruitFilter(rt)}
+                          className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${statsRecruitFilter === rt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                        >{rt || '전체'}</button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <GradeDashboard grades={grades} companies={filteredCos} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} compact />
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </>
       )}
@@ -624,25 +639,38 @@ ${extraOpHtml}
                   <div className="absolute inset-0 z-10" onClick={() => setShowModalStats(false)} />
                   <div className="absolute top-12 left-4 right-4 z-20 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <span className="font-semibold text-gray-800 text-sm">등급 분포 현황</span>
+                      <span className="font-semibold text-gray-800 text-sm">등급 분포 현황 <span className="text-xs font-normal text-gray-500">(내 점수 기준)</span></span>
                       <button onClick={() => setShowModalStats(false)} className="text-gray-400 hover:text-gray-600 p-1">
                         <X size={16} />
                       </button>
                     </div>
                     <div className="p-3">
                       {(() => {
-                        const divEvs = allEvaluators.filter(e => e.division_id === user.division_id).sort((a, b) => (a.evaluator_order || 0) - (b.evaluator_order || 0));
+                        const myDivCos = companies.filter(co => co.division_id === user.division_id);
+                        const recruitTypes = [...new Set(myDivCos.map(c => c.recruit_type).filter(Boolean))].sort() as string[];
+                        const filteredCos = modalStatsRecruitFilter ? myDivCos.filter(c => c.recruit_type === modalStatsRecruitFilter) : myDivCos;
                         const finalScores: Record<string, number> = {};
-                        companies.forEach(co => {
+                        filteredCos.forEach(co => {
                           const evalType = getActiveEvalType(co);
-                          const scores = divEvs.map(ev => {
-                            const e = allEvals.find(ev2 => ev2.company_id === co.project_no && ev2.evaluator_id === ev.id && (!evalType || ev2.evaluation_type === evalType));
-                            return e ? (e.adjusted_score ?? e.score ?? null) : null;
-                          });
-                          const avg = calculateAvgScore(scores);
-                          if (avg > 0) finalScores[co.project_no] = avg;
+                          const e = evaluations.find(ev => ev.company_id === co.project_no && (!evalType || ev.evaluation_type === evalType));
+                          if (e) {
+                            const s = e.adjusted_score ?? e.score ?? 0;
+                            if (s > 0) finalScores[co.project_no] = s;
+                          }
                         });
-                        return <GradeDashboard grades={grades} companies={companies} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} compact />;
+                        return (
+                          <>
+                            {recruitTypes.length > 1 && (
+                              <div className="flex gap-1 mb-2 flex-wrap">
+                                <button onClick={() => setModalStatsRecruitFilter('')} className={`px-2 py-0.5 rounded text-xs border transition-colors ${!modalStatsRecruitFilter ? 'bg-blue-600 text-white border-blue-500' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`}>전체</button>
+                                {recruitTypes.map(rt => (
+                                  <button key={rt} onClick={() => setModalStatsRecruitFilter(rt)} className={`px-2 py-0.5 rounded text-xs border transition-colors ${modalStatsRecruitFilter === rt ? 'bg-blue-600 text-white border-blue-500' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`}>{rt}</button>
+                                ))}
+                              </div>
+                            )}
+                            <GradeDashboard grades={grades} companies={filteredCos} finalScores={finalScores} divisions={user.division ? [user.division] : []} showDivisions={false} compact />
+                          </>
+                        );
                       })()}
                     </div>
                   </div>

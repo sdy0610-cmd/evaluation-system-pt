@@ -48,6 +48,7 @@ export default function ScoreReview({ year, user }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [grades, setGrades] = useState<GradeSetting[]>([]);
   const [showDashboard, setShowDashboard] = useState(true);
+  const [gradeRecruitFilter, setGradeRecruitFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [advancingSelected, setAdvancingSelected] = useState(false);
 
@@ -414,17 +415,40 @@ export default function ScoreReview({ year, user }: Props) {
 
       {!loading && grades.length > 0 && (
         <div className="mb-2">
-          <button onClick={() => setShowDashboard(d => !d)} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 mb-3 font-medium">
-            {showDashboard ? '▲ 등급 분포 숨기기' : '▼ 등급 분포 보기'}
-          </button>
-          {showDashboard && (
-            <GradeDashboard
-              grades={grades}
-              companies={companies}
-              finalScores={Object.fromEntries(rows.map(r => [r.company.project_no, r.final]))}
-              divisions={divisions}
-            />
-          )}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <button onClick={() => setShowDashboard(d => !d)} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium">
+              {showDashboard ? '▲ 등급 분포 숨기기' : '▼ 등급 분포 보기'}
+            </button>
+            {showDashboard && (() => {
+              const recruitTypes = [...new Set(companies.map(c => c.recruit_type).filter(Boolean))].sort();
+              return recruitTypes.length > 1 ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-400 mr-1">모집공고</span>
+                  {['', ...recruitTypes].map(rt => (
+                    <button key={rt}
+                      onClick={() => setGradeRecruitFilter(rt)}
+                      className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${gradeRecruitFilter === rt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                    >{rt || '전체'}</button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+          </div>
+          {showDashboard && (() => {
+            const finalScores = Object.fromEntries(rows.map(r => [r.company.project_no, r.final]));
+            const filteredCos = gradeRecruitFilter
+              ? companies.filter(c => c.recruit_type === gradeRecruitFilter)
+              : companies;
+            return (
+              <GradeDashboard
+                grades={grades}
+                companies={filteredCos}
+                finalScores={finalScores}
+                divisions={divisions}
+                showDivisions={!selectedDivId}
+              />
+            );
+          })()}
         </div>
       )}
 
