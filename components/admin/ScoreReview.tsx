@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   getDivisions, getCompanies, getEvaluators, getEvaluations,
   getBonusPointsBulk, adjustScore, confirmEvaluations, updateCompany,
-  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria, saveEvaluation
+  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria, saveEvaluation, deleteEvaluation
 } from '../../services/api';
 import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting, EvalCriterion } from '../../types';
 import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download, RefreshCw } from 'lucide-react';
@@ -342,6 +342,18 @@ export default function ScoreReview({ year, user }: Props) {
     }
   }
 
+  async function handleUnmarkAbsent(row: ScoreRow) {
+    if (!confirm('불참 처리를 취소하시겠습니까? 해당 기업의 모든 평가 기록이 삭제됩니다.')) return;
+    try {
+      for (const ev of row.evals) {
+        if (ev?.id) await deleteEvaluation(ev.id as number);
+      }
+      await loadData();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
@@ -657,7 +669,7 @@ export default function ScoreReview({ year, user }: Props) {
                             <div className="flex items-center gap-1.5">
                               <span className={`font-medium ${isAbsent ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{co.representative}</span>
                               {isAbsent
-                                ? <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded font-medium">불참</span>
+                                ? <button onClick={() => handleUnmarkAbsent(row)} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded font-medium hover:bg-red-200 transition-colors" title="불참 취소">불참 ✕</button>
                                 : selectedDivId && !row.allConfirmed && (
                                   <button
                                     onClick={() => handleMarkAbsent(row)}
