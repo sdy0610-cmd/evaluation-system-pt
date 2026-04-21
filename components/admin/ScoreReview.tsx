@@ -5,7 +5,7 @@ import {
   upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria
 } from '../../services/api';
 import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting, EvalCriterion } from '../../types';
-import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download, Edit2 } from 'lucide-react';
+import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
 
 interface CriteriaSection {
   section: number;
@@ -835,14 +835,6 @@ export default function ScoreReview({ year, user }: Props) {
                     )}
                   </div>
                 </div>
-                {!ev.is_confirmed && (
-                  <button
-                    onClick={() => { setScoreDetailModal(null); openAdjModal(ev, company); }}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
-                  >
-                    <Edit2 size={14} />점수 수정
-                  </button>
-                )}
               </div>
             </div>
           </div>
