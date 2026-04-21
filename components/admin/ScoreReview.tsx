@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   getDivisions, getCompanies, getEvaluators, getEvaluations,
   getBonusPointsBulk, adjustScore, confirmEvaluations, updateCompany,
-  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria
+  upsertBonusPoint, calculateAvgScore, toggleKnockout, getGradeSettings, getGradeForScore, getEvalCriteria, saveEvaluation
 } from '../../services/api';
 import type { Division, Company, Evaluator, Evaluation, BonusPoint, GradeSetting, EvalCriterion } from '../../types';
-import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { X, Check, AlertCircle, ChevronUp, ChevronDown, Download, RefreshCw } from 'lucide-react';
 
 interface CriteriaSection {
   section: number;
@@ -317,6 +317,31 @@ export default function ScoreReview({ year, user }: Props) {
     }
   }
 
+  async function handleMarkAbsent(row: ScoreRow) {
+    if (!selectedDivId || evaluators.length === 0) return;
+    const co = row.company;
+    if (row.evals.some(ev => ev?.is_confirmed)) {
+      alert('확정된 평가가 있어 불참 처리할 수 없습니다.');
+      return;
+    }
+    if (!confirm(`${co.representative}(${co.project_no}) 기업을 불참 처리하시겠습니까?\n모든 평가위원의 점수가 0점으로 기록되고 평가의견이 "불참"으로 저장됩니다.`)) return;
+    try {
+      for (const ev of evaluators) {
+        await saveEvaluation({
+          company_id: co.project_no,
+          evaluator_id: ev.id,
+          evaluation_type: evalType,
+          score: 0,
+          comment: '불참',
+          submitted_at: new Date().toISOString(),
+        });
+      }
+      await loadData();
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
@@ -437,6 +462,15 @@ export default function ScoreReview({ year, user }: Props) {
             {companies.length}개 기업 · 채점완료 {totalWithScores}개 · 확정 {confirmedCount}개
           </span>
         )}
+        <button
+          onClick={() => loadData()}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors ml-auto"
+          title="점수 현황 새로고침"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          새로고침
+        </button>
       </div>
 
       {loading && (
@@ -614,7 +648,28 @@ export default function ScoreReview({ year, user }: Props) {
                       <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {co.division?.division_name || '-'}
                       </td>
-                      <td className="px-2 py-3 font-medium text-gray-900 text-xs whitespace-nowrap">{co.representative}</td>
+                      <td className="px-2 py-3 text-xs whitespace-nowrap">
+                        {(() => {
+                          const isAbsent = selectedDivId && evaluators.length > 0 &&
+                            row.evals.filter(ev => ev !== null).length > 0 &&
+                            row.evals.filter(ev => ev !== null).every(ev => ev?.comment === '불참' && ev?.score === 0);
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-medium ${isAbsent ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{co.representative}</span>
+                              {isAbsent
+                                ? <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded font-medium">불참</span>
+                                : selectedDivId && !row.allConfirmed && (
+                                  <button
+                                    onClick={() => handleMarkAbsent(row)}
+                                    className="px-1.5 py-0.5 text-xs text-gray-400 border border-gray-300 rounded hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
+                                    title="불참 처리"
+                                  >불참</button>
+                                )
+                              }
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-2 py-3 text-xs text-gray-500 whitespace-nowrap" title={co.recruit_type || ''}>
                         {co.recruit_type ? co.recruit_type.slice(0, 2) : '-'}
                       </td>
