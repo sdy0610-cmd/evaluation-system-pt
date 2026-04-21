@@ -298,10 +298,10 @@ export default function ScoreReview({ year, user }: Props) {
   }
 
   function toggleSelectAll() {
-    if (selected.size === sortedRows.length) {
+    if (selected.size === filteredSortedRows.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(sortedRows.map(r => r.company.project_no)));
+      setSelected(new Set(filteredSortedRows.map(r => r.company.project_no)));
     }
   }
 
@@ -329,8 +329,14 @@ export default function ScoreReview({ year, user }: Props) {
     }
   }
 
-  const confirmedCount = sortedRows.filter(r => r.allConfirmed).length;
-  const totalWithScores = sortedRows.filter(r => r.scores.some(s => s !== null)).length;
+  const filteredSortedRows = useMemo(() =>
+    gradeRecruitFilter
+      ? sortedRows.filter(r => r.company.recruit_type === gradeRecruitFilter)
+      : sortedRows,
+  [sortedRows, gradeRecruitFilter]);
+
+  const confirmedCount = filteredSortedRows.filter(r => r.allConfirmed).length;
+  const totalWithScores = filteredSortedRows.filter(r => r.scores.some(s => s !== null)).length;
 
   return (
     <div className="p-8">
@@ -460,7 +466,7 @@ export default function ScoreReview({ year, user }: Props) {
                 <tr className="bg-slate-700">
                   <th className="px-2 py-2.5 text-center w-8">
                     <input type="checkbox"
-                      checked={sortedRows.length > 0 && selected.size === sortedRows.length}
+                      checked={filteredSortedRows.length > 0 && selected.size === filteredSortedRows.length}
                       onChange={toggleSelectAll}
                       className="w-3.5 h-3.5 rounded cursor-pointer accent-blue-400"
                     />
@@ -554,8 +560,8 @@ export default function ScoreReview({ year, user }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sortedRows.map((row, idx) => {
-                  const rank = row.hasKnockout ? '-' : idx + 1 - sortedRows.slice(0, idx).filter(r => r.hasKnockout).length;
+                {filteredSortedRows.map((row, idx) => {
+                  const rank = row.hasKnockout ? '-' : idx + 1 - filteredSortedRows.slice(0, idx).filter(r => r.hasKnockout).length;
                   const co = row.company;
                   return (
                     <tr
@@ -717,7 +723,7 @@ export default function ScoreReview({ year, user }: Props) {
                     </tr>
                   );
                 })}
-                {sortedRows.length === 0 && (
+                {filteredSortedRows.length === 0 && (
                   <tr>
                     <td colSpan={20} className="px-4 py-12 text-center text-gray-400">
                       {divisions.length === 0
