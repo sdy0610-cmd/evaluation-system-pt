@@ -188,10 +188,11 @@ export default function PrintCenter({ year, user }: Props) {
           ? `<td class="opinion-area">${evaluation.comment}</td>`
           : `<td class="opinion-area" style="color:#ccc">평가 의견을 입력하세요.</td>`;
 
-        const univNote = co.recruit_type === '대학발' ? `
+        const xo = (evaluation?.extra_opinions as Record<string, string>) || {};
+        const univNote = co.recruit_type?.includes('대학발') ? `
           <tr><td style="padding:4px 8px;font-size:10px;color:#555;border-top:1px solid #ddd">
-            ※ 지역주력산업 일치 여부: ${evaluation?.region_match === true ? '일치' : evaluation?.region_match === false ? '불일치' : '　　　　'}
-            &nbsp;&nbsp;&nbsp; 의견: ${evaluation?.region_match_comment || '　　　　　　　　　　　　　　　　　　　　'}
+            ※ 지역주력산업 일치 여부: ${xo['주력산업_일치여부'] || '　　　　'}
+            &nbsp;&nbsp;&nbsp; 의견: ${xo['주력산업_의견'] || '　　　　　　　　　　　　　　　　　　　　'}
           </td></tr>` : '';
 
         return `<div class="page">
