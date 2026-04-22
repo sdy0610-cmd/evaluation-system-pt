@@ -188,6 +188,7 @@ export async function getBonusPointsBulk(companyIds: string[]): Promise<BonusPoi
   const { data, error } = await supabase
     .from('startup_bonus_points')
     .select('*')
+    .limit(10000)
     .in('company_id', companyIds);
   if (error) throw error;
   return data || [];
@@ -206,7 +207,16 @@ export async function getEvaluations(params: {
   evaluatorId?: string;
   type?: string;
 }): Promise<Evaluation[]> {
-  let query = supabase.from('startup_evaluations').select('*');
+  // Chunk large companyId lists to avoid URL length limits
+  if (params.companyIds && params.companyIds.length > 200) {
+    const chunks: string[][] = [];
+    for (let i = 0; i < params.companyIds.length; i += 200)
+      chunks.push(params.companyIds.slice(i, i + 200));
+    const results = await Promise.all(chunks.map(ids => getEvaluations({ ...params, companyIds: ids })));
+    return results.flat();
+  }
+
+  let query = supabase.from('startup_evaluations').select('*').limit(10000);
   if (params.companyIds && params.companyIds.length > 0)
     query = query.in('company_id', params.companyIds);
   if (params.evaluatorId)
@@ -221,6 +231,7 @@ export async function getEvaluations(params: {
   const { data: evalData } = await supabase
     .from('startup_evaluators')
     .select('id, name, evaluator_order')
+    .limit(1000)
     .in('id', evalIds);
   const evalMap: Record<string, { id: string; name: string; evaluator_order: number }> = {};
   (evalData || []).forEach(e => { evalMap[e.id] = e; });
