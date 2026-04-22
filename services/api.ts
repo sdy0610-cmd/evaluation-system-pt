@@ -216,16 +216,28 @@ export async function getEvaluations(params: {
     return results.flat();
   }
 
-  let query = supabase.from('startup_evaluations').select('*').limit(10000);
-  if (params.companyIds && params.companyIds.length > 0)
-    query = query.in('company_id', params.companyIds);
-  if (params.evaluatorId)
-    query = query.eq('evaluator_id', params.evaluatorId);
-  if (params.type)
-    query = query.eq('evaluation_type', params.type);
-  const { data, error } = await query;
-  if (error) throw error;
-  const evs = data || [];
+  const PAGE_SIZE = 1000;
+  let allEvs: any[] = [];
+  let from = 0;
+  while (true) {
+    let query = supabase
+      .from('startup_evaluations')
+      .select('*')
+      .range(from, from + PAGE_SIZE - 1);
+    if (params.companyIds && params.companyIds.length > 0)
+      query = query.in('company_id', params.companyIds);
+    if (params.evaluatorId)
+      query = query.eq('evaluator_id', params.evaluatorId);
+    if (params.type)
+      query = query.eq('evaluation_type', params.type);
+    const { data, error } = await query;
+    if (error) throw error;
+    const batch = data || [];
+    allEvs = allEvs.concat(batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  const evs = allEvs;
   if (evs.length === 0) return [];
   const evalIds = [...new Set(evs.map(e => e.evaluator_id))];
   const { data: evalData } = await supabase
